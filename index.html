@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home Ops Centre</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#F6F4EF; --surface:#FFFFFF; --ink:#20241F; --muted:#6B6862; --border:#E4E1D8;
+    --sidebar:#EFEDE6; --accent:#2D6A5F; --accent-bg:#E9F1EE;
+    --habit:#1F8F53; --habit-bg:#E9F8F0; --action:#B3661A; --action-bg:#FDF0E4;
+    --danger:#B4442E; color-scheme: light;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Source Sans 3',system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+  h1,h2,h3,p{margin:0;}
+  a{color:var(--accent);}
+
+  /* ---- Auth screen ---- */
+  #auth-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .auth-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:36px 34px; width:100%; max-width:380px;}
+  .auth-card h1{font-family:'Fraunces',serif; font-size:24px; font-weight:600; margin-bottom:4px;}
+  .auth-card p.sub{color:var(--muted); font-size:13.5px; margin-bottom:20px;}
+  .auth-tabs{display:flex; gap:6px; margin-bottom:18px;}
+  .auth-tab{flex:1; text-align:center; padding:8px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:var(--bg);}
+  .auth-tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .field{display:flex; flex-direction:column; gap:4px; margin-bottom:12px;}
+  .field label{font-size:12px; font-weight:700; color:var(--muted);}
+  input, select, textarea{font-family:inherit; font-size:13.5px; padding:9px 11px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); width:100%;}
+  textarea{min-height:70px; resize:vertical;}
+  .auth-error{color:var(--danger); font-size:12.5px; margin-bottom:10px; min-height:16px;}
+  .btn{font-size:12.5px; font-weight:700; padding:9px 15px; border-radius:8px; border:1px solid var(--border); background:var(--surface); cursor:pointer; color:var(--ink);}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .btn.small{padding:5px 10px; font-size:11.5px;}
+  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .btn.wide{width:100%;}
+
+  /* ---- App shell ---- */
+  #app{display:none;}
+  .app-shell{display:flex; min-height:100vh;}
+  .sidebar{width:230px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:sticky; top:0; height:100vh; overflow-y:auto;}
+  .brand{display:flex; align-items:center; gap:8px; padding:4px 8px 14px;}
+  .brand-dot{width:9px; height:9px; border-radius:3px; background:var(--accent);}
+  .brand-name{font-family:'Fraunces',serif; font-size:15px; font-weight:600;}
+  .navgroup-label{font-size:10.5px; font-weight:700; letter-spacing:0.08em; color:var(--muted); padding:14px 10px 3px;}
+  .navitem{display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px; font-size:13.5px; font-weight:600;
+    color:var(--ink); cursor:pointer; border:none; background:transparent; text-align:left; width:100%;}
+  .navitem:hover{background:var(--accent-bg);}
+  .navitem.active{background:var(--accent-bg); color:var(--accent);}
+  .navdot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .sidebar-foot{margin-top:auto; font-size:11px; color:var(--muted); padding:14px 10px 4px; line-height:1.5;}
+  .sidebar-foot button{background:none; border:none; color:var(--accent); font-size:11px; font-weight:700; cursor:pointer; padding:0; margin-top:6px;}
+
+  .main{flex:1; padding:32px 40px 60px; max-width:900px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .eyebrow{font-size:11.5px; font-weight:700; letter-spacing:0.06em; color:var(--muted);}
+  .pagetitle{font-family:'Fraunces',serif; font-size:26px; font-weight:600; margin-top:4px;}
+  .subtitle{font-size:14px; color:var(--muted); margin-top:6px; max-width:580px;}
+  .headrow{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-top:16px;}
+  .empty{color:var(--muted); font-size:13.5px; font-style:italic; padding:14px 0;}
+
+  .tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-block;}
+  .tag.habit{background:var(--habit-bg); color:var(--habit);}
+  .tag.action{background:var(--action-bg); color:var(--action);}
+  .tag.focus{background:#FDECEA; color:#B4442E;}
+  .tag.pillar{background:var(--bg); border:1px solid var(--border); color:var(--muted);}
+
+  .barTrack{height:7px; background:var(--border); border-radius:4px; margin:6px 0;}
+  .barFill{height:7px; border-radius:4px;}
+
+  .today-item{display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-top:8px;}
+  .today-item .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .today-item .txt{flex:1; font-size:14px; font-weight:600;}
+
+  .goal-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-top:14px;}
+  .goal-title{font-size:15.5px; font-weight:700;}
+  .goal-level{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .ladder-line{font-size:12.5px; color:var(--muted); margin-top:8px;}
+
+  .habit-row, .action-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;}
+  .habit-row:last-child, .action-row:last-child{border-bottom:none;}
+  .habit-name{font-size:14px; font-weight:600;}
+  .habit-sub{font-size:11.5px; color:var(--muted);}
+  .days{display:flex; gap:5px;}
+  .day{width:20px; height:20px; border-radius:5px; border:1.5px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff;}
+  .day[data-s=""]{background:transparent; color:var(--muted);}
+  .day[data-s="g"]{background:var(--habit); border-color:var(--habit);}
+  .day[data-s="r"]{background:var(--danger); border-color:var(--danger);}
+  .day[data-s="x"]{background:var(--muted); border-color:var(--muted);}
+
+  .section-label{font-size:13px; font-weight:700; letter-spacing:0.02em; margin-top:26px; margin-bottom:4px; color:var(--ink); display:flex; justify-content:space-between; align-items:center;}
+
+  .balance-wrap{display:flex; gap:36px; flex-wrap:wrap; align-items:center;}
+  .legend-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer;}
+  .legend-row:last-child{border-bottom:none;}
+  .legend-dot{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
+  .legend-name{font-size:13.5px; font-weight:600; flex:1;}
+  .legend-score{font-size:12.5px; font-weight:700; color:var(--muted);}
+
+  .vision-block{margin-top:14px;}
+  .vision-block h3{font-size:13.5px; font-weight:700; margin-bottom:6px;}
+  .vision-block p{font-size:13.5px; color:var(--muted); white-space:pre-wrap;}
+  .menu-wrap{position:relative;}
+  .menu-dropdown{position:absolute; right:0; top:36px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.1); display:none; flex-direction:column; min-width:150px; z-index:20;}
+  .menu-dropdown.open{display:flex;}
+  .menu-dropdown button{text-align:left; padding:10px 14px; font-size:13px; font-weight:600; background:none; border:none; cursor:pointer; color:var(--ink);}
+  .menu-dropdown button:hover{background:var(--accent-bg);}
+  .version-nav{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); margin-top:10px;}
+  .version-nav button{background:none; border:1px solid var(--border); border-radius:6px; width:26px; height:26px; cursor:pointer; font-weight:700;}
+  .version-nav button:disabled{opacity:0.3; cursor:not-allowed;}
+
+  .overlay{position:fixed; inset:0; background:rgba(20,20,15,0.5); display:none; align-items:flex-start; justify-content:center; z-index:100; padding:40px 20px; overflow-y:auto;}
+  .overlay.open{display:flex;}
+  .overlay-card{background:var(--surface); border-radius:14px; max-width:560px; width:100%; padding:28px 30px; margin-bottom:60px;}
+  .overlay-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .overlay-foot{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+  .row2{display:flex; gap:10px;}
+  .row2 > .field{flex:1;}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; display:none;}
+
+  @media (max-width:860px){
+    .app-shell{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:static; flex-direction:row; overflow-x:auto; padding:12px;}
+    .navgroup-label{display:none;}
+    .navitem{white-space:nowrap; width:auto;}
+    .sidebar-foot{display:none;}
+    .main{padding:24px 18px 48px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>Home Ops Centre</h1>
+    <p class="sub">Sign in to your household portal.</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-signin">Sign In</div>
+      <div class="auth-tab" id="tab-signup">Sign Up</div>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="field"><label>Email</label><input type="email" id="auth-email" placeholder="you@example.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="auth-password" placeholder="••••••••"></div>
+    <div class="field" id="auth-name-field" style="display:none;"><label>Your name</label><input type="text" id="auth-name" placeholder="Royce or Heidi"></div>
+    <button class="btn primary wide" id="auth-submit">Sign In</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="app-shell">
+  <nav class="sidebar">
+    <div class="brand"><span class="brand-dot"></span><span class="brand-name">Home Ops Centre</span></div>
+    <button class="navitem" data-nav="today">Today</button>
+    <div class="navgroup-label">VISION &amp; GOALS</div>
+    <button class="navitem" data-nav="vision">Vision</button>
+    <button class="navitem" data-nav="balance">Balance Map</button>
+    <button class="navitem" data-nav="goals">Goals</button>
+    <button class="navitem" data-nav="habits">Habits</button>
+    <div class="navgroup-label">PILLARS</div>
+    <div id="pillar-nav"></div>
+    <div class="navgroup-label">EXECUTION</div>
+    <button class="navitem" data-nav="actions">Actions</button>
+    <div class="sidebar-foot">
+      Phase 1 — Vision &amp; Goals. Reading Plan, Finance, Meetings and more arrive in later phases.
+      <button id="signout-btn">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <section class="panel" id="panel-today">
+      <div class="eyebrow" id="today-date"></div>
+      <h1 class="pagetitle" id="today-greeting">Good morning</h1>
+      <p class="subtitle">A few things need you today.</p>
+      <div id="today-items"></div>
+      <div class="section-label">Current focus</div>
+      <div id="today-focus"></div>
+    </section>
+
+    <section class="panel" id="panel-vision">
+      <div class="headrow">
+        <div><div class="eyebrow">Household &amp; Personal Vision</div><h1 class="pagetitle">Who we are, and where we're headed</h1></div>
+        <div class="menu-wrap">
+          <button class="btn" id="vision-menu-btn">⋮ Menu</button>
+          <div class="menu-dropdown" id="vision-menu">
+            <button data-action="vision-review">Review</button>
+            <button data-action="vision-startover">Start Over</button>
+          </div>
+        </div>
+      </div>
+      <p class="subtitle">Distinct from Goals — this is about identity, not accomplishment.</p>
+      <div class="card" id="vision-display"></div>
+      <div class="version-nav" id="version-nav" style="display:none;">
+        <button id="v-prev">&lt;</button><span id="v-label"></span><button id="v-next">&gt;</button>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-balance">
+      <div class="eyebrow">The Balance Map</div>
+      <h1 class="pagetitle">All seven pillars, equally weighted</h1>
+      <p class="subtitle">Based on real goal progress so far — scores will settle in as more is entered.</p>
+      <div class="card balance-wrap">
+        <svg id="radar" viewBox="0 0 320 300" style="width:320px; height:300px; flex-shrink:0;"></svg>
+        <div style="flex:1; min-width:240px;" id="balance-legend"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-goals">
+      <div class="section-label" style="margin-top:0;">Goals <button class="btn small" data-action="open-add-goal">+ Add goal</button></div>
+      <h1 class="pagetitle" style="font-size:22px;">Every pillar, one list</h1>
+      <div id="goals-flat"></div>
+    </section>
+
+    <section class="panel" id="panel-habits">
+      <div class="section-label" style="margin-top:0;">Habits <button class="btn small" data-action="open-add-habit">+ Add habit</button></div>
+      <h1 class="pagetitle" style="font-size:22px;">Tap a day to cycle its state</h1>
+      <p class="subtitle">Green tick → red cross → grey dash (excused) → blank.</p>
+      <div class="card" id="habits-flat"></div>
+    </section>
+
+    <section class="panel" id="panel-actions">
+      <div class="section-label" style="margin-top:0;">Actions <button class="btn small" data-action="open-add-action">+ Add action</button></div>
+      <h1 class="pagetitle" style="font-size:22px;">One-off tasks and recurring check-ins</h1>
+      <div class="card" id="actions-flat"></div>
+    </section>
+
+    <section class="panel" id="panel-pillar">
+      <div class="eyebrow" id="pillar-eyebrow">Pillar</div>
+      <h1 class="pagetitle" id="pillar-title">Pillar name</h1>
+      <p class="subtitle" id="pillar-sub"></p>
+      <div class="section-label">Goals</div>
+      <div id="pillar-goals"></div>
+      <div class="section-label">Habits</div>
+      <div class="card" id="pillar-habits"></div>
+      <div class="section-label">Actions</div>
+      <div class="card" id="pillar-actions"></div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<!-- Vision edit overlay -->
+<div class="overlay" id="vision-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;" id="overlay-title">Review</h2><button class="btn small" data-action="close-vision-overlay">Close</button></div>
+    <div id="overlay-body"></div>
+    <div class="overlay-foot"><button class="btn" data-action="close-vision-overlay">Cancel</button><button class="btn primary" id="overlay-save" disabled data-action="save-vision">Save as new version</button></div>
+  </div>
+</div>
+
+<!-- Generic add overlay (Goal / Habit / Action) -->
+<div class="overlay" id="add-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;" id="add-overlay-title">Add</h2><button class="btn small" data-action="close-add-overlay">Close</button></div>
+    <div id="add-overlay-body"></div>
+    <div class="overlay-foot"><button class="btn" data-action="close-add-overlay">Cancel</button><button class="btn primary" data-action="save-add">Save</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://zibfnpjfftwqaacxpnjv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_AW0C0xPrWkBUNXZTQAQTxw_UV3MbJUb';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const todayStr = () => new Date().toISOString().slice(0,10);
+const daysAgoStr = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(()=> t.style.display = 'none', 2600);
+}
+
+// ---------------- AUTH ----------------
+let authMode = 'signin';
+document.getElementById('tab-signin').addEventListener('click', ()=> setAuthMode('signin'));
+document.getElementById('tab-signup').addEventListener('click', ()=> setAuthMode('signup'));
+function setAuthMode(mode){
+  authMode = mode;
+  document.getElementById('tab-signin').classList.toggle('active', mode==='signin');
+  document.getElementById('tab-signup').classList.toggle('active', mode==='signup');
+  document.getElementById('auth-name-field').style.display = mode==='signup' ? 'flex' : 'none';
+  document.getElementById('auth-submit').textContent = mode==='signin' ? 'Sign In' : 'Sign Up';
+  document.getElementById('auth-error').textContent = '';
+}
+document.getElementById('auth-submit').addEventListener('click', async ()=>{
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Email and password are both required.'; return; }
+  if(authMode === 'signin'){
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if(error){ errEl.textContent = error.message; return; }
+  } else {
+    const name = document.getElementById('auth-name').value.trim() || email;
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if(error){ errEl.textContent = error.message; return; }
+    if(data.user){
+      await supabase.from('profiles').insert({ id: data.user.id, display_name: name });
+    }
+    if(!data.session){
+      errEl.style.color = 'var(--accent)';
+      errEl.textContent = 'Check your email to confirm your account, then sign in.';
+      return;
+    }
+  }
+  await boot();
+});
+document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  await supabase.auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+});
+
+// ---------------- STATE ----------------
+let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [], VISIONS = [];
+let visionIndex = 0;
+let state = { pillar: null, panel: 'today' };
+
+async function boot(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(!session){ return; }
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadAll();
+  showPanel('today');
+}
+
+async function loadAll(){
+  const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions }] = await Promise.all([
+    supabase.from('pillars').select('*').order('sort_order'),
+    supabase.from('goals').select('*').order('created_at'),
+    supabase.from('habits').select('*').order('created_at'),
+    supabase.from('habit_logs').select('*').gte('log_date', daysAgoStr(6)),
+    supabase.from('actions').select('*').order('created_at'),
+    supabase.from('vision_versions').select('*').order('created_at'),
+  ]);
+  PILLARS = pillars || []; GOALS = goals || []; HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS = actions || []; VISIONS = visions || [];
+  visionIndex = VISIONS.length - 1;
+  renderSidebarPillars();
+}
+
+function pillarOf(id){ return PILLARS.find(p=>p.id===id); }
+function goalOf(id){ return GOALS.find(g=>g.id===id); }
+
+function renderSidebarPillars(){
+  document.getElementById('pillar-nav').innerHTML = PILLARS.map(p=>
+    `<button class="navitem" data-nav="pillar" data-pillar="${p.id}"><span class="navdot" style="background:${p.color};"></span>${p.name}</button>`
+  ).join('');
+}
+
+function showPanel(name, pillarId){
+  state.panel = name;
+  if(pillarId) state.pillar = pillarId;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.remove('active'));
+  const sel = pillarId ? `.navitem[data-pillar="${pillarId}"]` : `.navitem[data-nav="${name}"]`;
+  const navEl = document.querySelector(sel);
+  if(navEl) navEl.classList.add('active');
+  renderActive();
+}
+function renderActive(){
+  ({ today: renderToday, vision: renderVision, balance: renderBalance, goals: renderGoalsFlat,
+     habits: renderHabitsFlat, actions: renderActionsFlat, pillar: renderPillar })[state.panel]?.();
+}
+
+// ---------------- GOAL CARD ----------------
+function goalProgressPct(g){
+  if(g.goal_type === 'numeric'){ if(!g.target) return 0; return Math.max(0, Math.min(100, Math.round((g.current||0)/g.target*100))); }
+  return g.done ? 100 : 0;
+}
+function goalCardHTML(g, showPillarTag){
+  const pil = pillarOf(g.pillar_id);
+  const pct = goalProgressPct(g);
+  let body;
+  if(g.goal_type === 'numeric'){
+    body = `<div class="ladder-line"><strong>${g.longterm_note || ''}</strong> ${g.longterm_note ? '→ ' : ''}${g.staircase_level}: ${g.unit||''}${g.current||0} of ${g.unit||''}${g.target||0} (${pct}%)</div>
+      <div class="barTrack"><div class="barFill" style="width:${pct}%; background:${pil?pil.color:'#999'};"></div></div>`;
+  } else {
+    body = `<div class="ladder-line"><strong>${g.longterm_note || ''}</strong> ${g.longterm_note ? '→ ' : ''}${g.staircase_level} —
+      <label style="cursor:pointer;"><input type="checkbox" ${g.done?'checked':''} data-action="toggle-goal" data-id="${g.id}"> ${g.done?'Achieved':'Mark achieved'}</label></div>`;
+  }
+  return `<div class="goal-card"><div class="headrow"><div><div class="goal-title">${g.title}${g.is_focus?' <span class="tag focus">CURRENT FOCUS</span>':''}${showPillarTag&&pil?` <span class="tag pillar">${pil.name}</span>`:''}</div>
+    <div class="goal-level">${g.deadline ? 'deadline '+g.deadline : 'no deadline set'}</div></div></div>${body}</div>`;
+}
+
+// ---------------- TODAY ----------------
+function renderToday(){
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'long' });
+  const due = ACTIONS.filter(a=> a.status==='due' && (!a.due_date || a.due_date <= todayStr()));
+  const today = todayStr();
+  const unmarked = HABITS.filter(h=> !HABIT_LOGS.find(l=> l.habit_id===h.id && l.log_date===today));
+  const items = [];
+  due.slice(0,3).forEach(a=> items.push({tag:'ACTION', text:a.title, color: pillarOf(a.pillar_id)?.color || '#999'}));
+  unmarked.slice(0,2).forEach(h=> items.push({tag:'HABIT', text:h.name+' — not marked yet', color: pillarOf(h.pillar_id)?.color || '#999'}));
+  document.getElementById('today-items').innerHTML = items.length ? items.map(i=>
+    `<div class="today-item"><span class="dot" style="background:${i.color};"></span><span class="txt">${i.text}</span><span class="tag ${i.tag==='HABIT'?'habit':'action'}">${i.tag}</span></div>`
+  ).join('') : '<p class="empty">Nothing outstanding — add goals, habits or actions to see them here.</p>';
+  const focus = GOALS.find(g=>g.is_focus);
+  document.getElementById('today-focus').innerHTML = focus ? goalCardHTML(focus, true) : '<p class="empty">No current focus goal set yet.</p>';
+}
+
+// ---------------- VISION ----------------
+const VISION_FIELDS = [
+  {id:'household', label:'Household Vision & Mission'},
+  {id:'royce', label:"Royce's Individual Vision"},
+  {id:'heidi', label:"Heidi's Individual Vision"},
+  {id:'core_values', label:'Core Values'},
+  {id:'swot', label:'SWOT'},
+  {id:'wishlist', label:'Lifetime Wish List'},
+  {id:'other', label:'Other'},
+];
+function renderVision(){
+  if(!VISIONS.length){
+    document.getElementById('vision-display').innerHTML = '<p class="empty">No version yet — use the menu to write the first one.</p>';
+    document.getElementById('version-nav').style.display = 'none';
+    return;
+  }
+  const v = VISIONS[visionIndex];
+  document.getElementById('vision-display').innerHTML = VISION_FIELDS.map(f=>
+    `<div class="vision-block"><h3>${f.label}</h3><p>${v[f.id] || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`
+  ).join('');
+  document.getElementById('version-nav').style.display = 'flex';
+  document.getElementById('v-label').textContent = `Version ${visionIndex+1} of ${VISIONS.length} · ${new Date(v.created_at).toLocaleString()}`;
+  document.getElementById('v-prev').disabled = visionIndex<=0;
+  document.getElementById('v-next').disabled = visionIndex>=VISIONS.length-1;
+}
+document.getElementById('v-prev').addEventListener('click', ()=>{ if(visionIndex>0){ visionIndex--; renderVision(); } });
+document.getElementById('v-next').addEventListener('click', ()=>{ if(visionIndex<VISIONS.length-1){ visionIndex++; renderVision(); } });
+document.getElementById('vision-menu-btn').addEventListener('click', ()=> document.getElementById('vision-menu').classList.toggle('open'));
+
+let overlayMode = 'review', overlayOriginal = {};
+function openVisionOverlay(mode){
+  overlayMode = mode;
+  document.getElementById('vision-menu').classList.remove('open');
+  document.getElementById('overlay-title').textContent = mode==='review' ? 'Review — edit this version' : 'Start Over — blank sheet';
+  const source = (mode==='review' && VISIONS.length) ? VISIONS[VISIONS.length-1] : {};
+  document.getElementById('overlay-body').innerHTML = VISION_FIELDS.map(f=>
+    `<div class="vision-block"><h3>${f.label}</h3><textarea data-field="${f.id}">${source[f.id]||''}</textarea></div>`
+  ).join('');
+  document.querySelectorAll('#overlay-body textarea').forEach(a=> a.addEventListener('input', checkOverlayValid));
+  overlayOriginal = {};
+  document.querySelectorAll('#overlay-body textarea').forEach(a=> overlayOriginal[a.dataset.field] = a.value);
+  document.getElementById('overlay-save').disabled = true;
+  document.getElementById('vision-overlay').classList.add('open');
+}
+function checkOverlayValid(){
+  const areas = document.querySelectorAll('#overlay-body textarea');
+  let allFilled = true, changed = false;
+  areas.forEach(a=>{ if(!a.value.trim()) allFilled = false; if(a.value !== overlayOriginal[a.dataset.field]) changed = true; });
+  document.getElementById('overlay-save').disabled = !(overlayMode==='startover' ? allFilled : (allFilled && changed));
+}
+async function saveVisionVersion(){
+  const areas = document.querySelectorAll('#overlay-body textarea');
+  const row = {};
+  areas.forEach(a=> row[a.dataset.field] = a.value);
+  const { data: { user } } = await supabase.auth.getUser();
+  row.created_by = user?.id;
+  const { error } = await supabase.from('vision_versions').insert(row);
+  if(error){ showToast('Could not save: '+error.message); return; }
+  document.getElementById('vision-overlay').classList.remove('open');
+  const { data } = await supabase.from('vision_versions').select('*').order('created_at');
+  VISIONS = data || []; visionIndex = VISIONS.length-1;
+  renderVision();
+  showToast('Vision saved as a new version.');
+}
+
+// ---------------- BALANCE MAP ----------------
+function renderBalance(){
+  const scores = PILLARS.map(p=>{
+    const goals = GOALS.filter(g=>g.pillar_id===p.id);
+    if(!goals.length) return null;
+    const avg = Math.round(goals.reduce((s,g)=>s+goalProgressPct(g),0)/goals.length);
+    return avg;
+  });
+  const cx=160, cy=140, R=105, n=PILLARS.length;
+  const angle = i => -Math.PI/2 + i*(2*Math.PI/n);
+  let gridPoly='', axisLines='', dataPoly=[], dots='', labels='';
+  [0.33,0.66,1].forEach(f=>{
+    let pts=[]; for(let i=0;i<n;i++){ const a=angle(i); pts.push((cx+R*f*Math.cos(a))+','+(cy+R*f*Math.sin(a))); }
+    gridPoly += `<polygon points="${pts.join(' ')}" fill="none" stroke="var(--border)" stroke-width="1"></polygon>`;
+  });
+  for(let i=0;i<n;i++){
+    const a=angle(i), x=cx+R*Math.cos(a), y=cy+R*Math.sin(a);
+    axisLines += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--border)" stroke-width="1"></line>`;
+    const f = (scores[i]||0)/100, dx=cx+R*f*Math.cos(a), dy=cy+R*f*Math.sin(a);
+    dataPoly.push(dx+','+dy);
+    dots += `<circle cx="${dx}" cy="${dy}" r="4" fill="${PILLARS[i].color}" style="cursor:pointer;" data-action="nav-pillar" data-id="${PILLARS[i].id}"></circle>`;
+    const lx=cx+(R+22)*Math.cos(a), ly=cy+(R+22)*Math.sin(a);
+    labels += `<text x="${lx}" y="${ly}" font-size="10" fill="var(--muted)" text-anchor="middle">${PILLARS[i].name}</text>`;
+  }
+  document.getElementById('radar').innerHTML = gridPoly+axisLines+
+    `<polygon points="${dataPoly.join(' ')}" fill="rgba(45,106,95,0.16)" stroke="var(--accent)" stroke-width="2"></polygon>`+dots+labels;
+  document.getElementById('balance-legend').innerHTML = PILLARS.map((p,i)=>
+    `<div class="legend-row" data-action="nav-pillar" data-id="${p.id}"><span class="legend-dot" style="background:${p.color};"></span><span class="legend-name">${p.name}</span><span class="legend-score">${scores[i]===null?'No goals yet':scores[i]+'%'}</span></div>`
+  ).join('');
+}
+
+// ---------------- FLAT GOALS / HABITS / ACTIONS ----------------
+function renderGoalsFlat(){
+  document.getElementById('goals-flat').innerHTML = GOALS.length ? GOALS.map(g=>goalCardHTML(g,true)).join('') : '<p class="empty">No goals yet — add your first one.</p>';
+}
+function habitRowHTML(h, showPillar){
+  const pil = pillarOf(h.pillar_id);
+  const days = [];
+  for(let i=6;i>=0;i--){ const d = daysAgoStr(i); const log = HABIT_LOGS.find(l=>l.habit_id===h.id && l.log_date===d); days.push({date:d, state: log?log.state:''}); }
+  const marked = days.filter(d=>d.state);
+  const goodCount = days.filter(d=>d.state==='g').length;
+  const compliance = marked.length ? Math.round(goodCount/marked.length*100) : 0;
+  let streak = 0;
+  for(let i=days.length-1;i>=0;i--){ const s=days[i].state; if(!s) continue; if(s==='g'){streak++;continue;} if(s==='x')continue; if(s==='r')break; }
+  return `<div class="habit-row"><div><div class="habit-name">${h.name}${showPillar&&pil?` <span class="tag pillar">${pil.name}</span>`:''}</div>
+  <div class="habit-sub">${h.cadence} · ${streak} day streak · ${compliance}% (7d)</div></div>
+  <div class="days">${days.map(d=>`<div class="day" data-s="${d.state}" data-action="cycle-day" data-id="${h.id}" data-date="${d.date}" data-state="${d.state}">${d.state==='g'?'✓':d.state==='r'?'✕':d.state==='x'?'–':''}</div>`).join('')}</div></div>`;
+}
+function renderHabitsFlat(){
+  document.getElementById('habits-flat').innerHTML = HABITS.length ? HABITS.map(h=>habitRowHTML(h,true)).join('') : '<p class="empty">No habits yet — add your first one.</p>';
+}
+function actionRowHTML(a, showPillar){
+  const pil = pillarOf(a.pillar_id);
+  const sub = (a.recurring ? (a.cadence||'Recurring') : 'One-off') + ' · ' + (a.status==='done' ? 'Done' : (a.due_date ? 'Due '+a.due_date : 'No date set'));
+  let control;
+  if(a.logs_value){
+    control = a.status==='done' ? '<span class="tag habit">LOGGED</span>' :
+      `<button class="btn small" data-action="log-action" data-id="${a.id}">Log</button>`;
+  } else {
+    control = `<button class="btn small ${a.status==='done'?'':'primary'}" data-action="toggle-action" data-id="${a.id}">${a.status==='done'?'Undo':'Mark done'}</button>`;
+  }
+  return `<div class="action-row"><div><div class="habit-name">${a.title}${showPillar&&pil?` <span class="tag pillar">${pil.name}</span>`:''}</div><div class="habit-sub">${sub}</div></div>${control}</div>`;
+}
+function renderActionsFlat(){
+  document.getElementById('actions-flat').innerHTML = ACTIONS.length ? ACTIONS.map(a=>actionRowHTML(a,true)).join('') : '<p class="empty">No actions yet — add your first one.</p>';
+}
+
+async function toggleGoalDone(id){
+  const g = goalOf(id); const newVal = !g.done;
+  const { error } = await supabase.from('goals').update({ done: newVal }).eq('id', id);
+  if(error){ showToast('Update failed: '+error.message); return; }
+  g.done = newVal; renderActive();
+}
+async function cycleDay(habitId, date, current){
+  const order = ['', 'g', 'r', 'x'];
+  const next = order[(order.indexOf(current)+1) % order.length];
+  if(next === ''){
+    await supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('log_date', date);
+    HABIT_LOGS = HABIT_LOGS.filter(l=> !(l.habit_id===habitId && l.log_date===date));
+  } else {
+    const { data, error } = await supabase.from('habit_logs').upsert({ habit_id: habitId, log_date: date, state: next }, { onConflict: 'habit_id,log_date' }).select();
+    if(error){ showToast('Could not save: '+error.message); return; }
+    HABIT_LOGS = HABIT_LOGS.filter(l=> !(l.habit_id===habitId && l.log_date===date));
+    if(data && data[0]) HABIT_LOGS.push(data[0]);
+  }
+  renderActive();
+}
+async function toggleAction(id){
+  const a = ACTIONS.find(x=>x.id===id); const next = a.status==='done' ? 'due' : 'done';
+  const { error } = await supabase.from('actions').update({ status: next }).eq('id', id);
+  if(error){ showToast('Update failed: '+error.message); return; }
+  a.status = next; renderActive();
+}
+function logAction(id){
+  const a = ACTIONS.find(x=>x.id===id);
+  openAddOverlay('log', a);
+}
+
+// ---------------- PILLAR VIEW ----------------
+function renderPillar(){
+  const pil = pillarOf(state.pillar);
+  if(!pil) return;
+  document.getElementById('pillar-eyebrow').textContent = 'Pillar';
+  document.getElementById('pillar-eyebrow').style.color = pil.color;
+  document.getElementById('pillar-title').textContent = pil.name;
+  document.getElementById('pillar-title').style.color = pil.color;
+  document.getElementById('pillar-sub').textContent = 'Every goal, habit and action below belongs to this pillar.';
+  const goals = GOALS.filter(g=>g.pillar_id===pil.id);
+  document.getElementById('pillar-goals').innerHTML = goals.length ? goals.map(g=>goalCardHTML(g,false)).join('') : '<p class="empty">No goals here yet.</p>';
+  const habits = HABITS.filter(h=>h.pillar_id===pil.id);
+  document.getElementById('pillar-habits').innerHTML = habits.length ? habits.map(h=>habitRowHTML(h,false)).join('') : '<p class="empty">No habits here yet.</p>';
+  const actions = ACTIONS.filter(a=>a.pillar_id===pil.id);
+  document.getElementById('pillar-actions').innerHTML = actions.length ? actions.map(a=>actionRowHTML(a,false)).join('') : '<p class="empty">No actions here yet.</p>';
+}
+
+// ---------------- ADD OVERLAY (Goal / Habit / Action / Log) ----------------
+let addMode = null, addTargetAction = null;
+function pillarOptions(selected){
+  return PILLARS.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.name}</option>`).join('');
+}
+function goalOptions(){
+  return '<option value="">— none —</option>' + GOALS.map(g=>`<option value="${g.id}">${g.title}</option>`).join('');
+}
+function openAddOverlay(mode, action){
+  addMode = mode; addTargetAction = action || null;
+  const body = document.getElementById('add-overlay-body');
+  if(mode === 'goal'){
+    document.getElementById('add-overlay-title').textContent = 'Add Goal';
+    body.innerHTML = `
+      <div class="field"><label>Title</label><input type="text" id="f-title" placeholder="Save £15k deposit"></div>
+      <div class="row2">
+        <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions()}</select></div>
+        <div class="field"><label>Staircase level</label><select id="f-level">
+          <option>Long-term</option><option>3-year</option><option>1-year</option><option selected>Quarterly</option><option>Monthly</option><option>Weekly</option><option>Daily</option>
+        </select></div>
+      </div>
+      <div class="field"><label>Type</label><select id="f-type" onchange="document.getElementById('numeric-fields').style.display=this.value==='numeric'?'flex':'none'">
+        <option value="numeric">Numeric (target + measurement)</option><option value="binary">Binary (done / not done)</option>
+      </select></div>
+      <div class="row2" id="numeric-fields">
+        <div class="field"><label>Target</label><input type="number" id="f-target"></div>
+        <div class="field"><label>Current</label><input type="number" id="f-current" value="0"></div>
+        <div class="field"><label>Unit</label><input type="text" id="f-unit" placeholder="£ / lb"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Deadline</label><input type="date" id="f-deadline"></div>
+        <div class="field"><label>Long-term note</label><input type="text" id="f-longterm" placeholder="First home & financial security"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="f-focus"> Mark as current focus (the ONE Thing)</label></div>
+    `;
+  } else if(mode === 'habit'){
+    document.getElementById('add-overlay-title').textContent = 'Add Habit';
+    body.innerHTML = `
+      <div class="field"><label>Name</label><input type="text" id="f-name" placeholder="Morning walk"></div>
+      <div class="row2">
+        <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions()}</select></div>
+        <div class="field"><label>Cadence</label><select id="f-cadence"><option>Daily</option><option>Weekly</option><option>A few times a week</option><option>Monthly</option></select></div>
+      </div>
+      <div class="field"><label>Linked goal (optional)</label><select id="f-goal">${goalOptions()}</select></div>
+    `;
+  } else if(mode === 'action'){
+    document.getElementById('add-overlay-title').textContent = 'Add Action';
+    body.innerHTML = `
+      <div class="field"><label>Title</label><input type="text" id="f-title" placeholder="Transfer £150 to house fund"></div>
+      <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions()}</select></div>
+      <div class="row2">
+        <div class="field"><label><input type="checkbox" id="f-recurring"> Recurring</label><input type="text" id="f-cadence" placeholder="Weekly · Fri"></div>
+        <div class="field"><label>Due date</label><input type="date" id="f-due"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="f-logs" onchange="document.getElementById('value-type-field').style.display=this.checked?'flex':'none'"> Logs a value</label></div>
+      <div class="row2" id="value-type-field" style="display:none;">
+        <div class="field"><label>Value type</label><select id="f-valuetype"><option value="number">Number</option><option value="yesno">Yes/No</option></select></div>
+        <div class="field"><label>Unit (if number)</label><input type="text" id="f-unit" placeholder="lb / £"></div>
+      </div>
+      <div class="field"><label>Linked goal (optional)</label><select id="f-goal">${goalOptions()}</select></div>
+    `;
+  } else if(mode === 'log'){
+    document.getElementById('add-overlay-title').textContent = 'Log: ' + action.title;
+    body.innerHTML = `
+      <div class="field"><label>${action.value_type==='number' ? 'Value ('+(action.unit||'')+')' : 'Result'}</label>
+      ${action.value_type==='number' ? '<input type="number" id="f-value">' : '<select id="f-value"><option value="yes">Yes</option><option value="no">No</option></select>'}</div>
+      <div class="field"><label>Note (optional)</label><textarea id="f-note"></textarea></div>
+    `;
+  }
+  document.getElementById('add-overlay').classList.add('open');
+}
+async function saveAdd(){
+  if(addMode === 'goal'){
+    const type = document.getElementById('f-type').value;
+    const row = {
+      title: document.getElementById('f-title').value.trim(),
+      pillar_id: document.getElementById('f-pillar').value,
+      staircase_level: document.getElementById('f-level').value,
+      goal_type: type,
+      target: type==='numeric' ? parseFloat(document.getElementById('f-target').value)||null : null,
+      current: type==='numeric' ? parseFloat(document.getElementById('f-current').value)||0 : null,
+      unit: type==='numeric' ? document.getElementById('f-unit').value.trim() : null,
+      deadline: document.getElementById('f-deadline').value || null,
+      longterm_note: document.getElementById('f-longterm').value.trim(),
+      is_focus: document.getElementById('f-focus').checked,
+      done: false,
+    };
+    if(!row.title){ showToast('A title is required.'); return; }
+    if(row.is_focus){ await supabase.from('goals').update({ is_focus:false }).eq('is_focus', true); }
+    const { error } = await supabase.from('goals').insert(row);
+    if(error){ showToast('Could not save: '+error.message); return; }
+  } else if(addMode === 'habit'){
+    const row = {
+      name: document.getElementById('f-name').value.trim(),
+      pillar_id: document.getElementById('f-pillar').value,
+      cadence: document.getElementById('f-cadence').value,
+      goal_id: document.getElementById('f-goal').value || null,
+    };
+    if(!row.name){ showToast('A name is required.'); return; }
+    const { error } = await supabase.from('habits').insert(row);
+    if(error){ showToast('Could not save: '+error.message); return; }
+  } else if(addMode === 'action'){
+    const logsValue = document.getElementById('f-logs').checked;
+    const row = {
+      title: document.getElementById('f-title').value.trim(),
+      pillar_id: document.getElementById('f-pillar').value,
+      recurring: document.getElementById('f-recurring').checked,
+      cadence: document.getElementById('f-cadence').value.trim() || null,
+      due_date: document.getElementById('f-due').value || null,
+      logs_value: logsValue,
+      value_type: logsValue ? document.getElementById('f-valuetype').value : null,
+      unit: logsValue ? document.getElementById('f-unit').value.trim() : null,
+      goal_id: document.getElementById('f-goal').value || null,
+      status: 'due',
+    };
+    if(!row.title){ showToast('A title is required.'); return; }
+    const { error } = await supabase.from('actions').insert(row);
+    if(error){ showToast('Could not save: '+error.message); return; }
+  } else if(addMode === 'log'){
+    const a = addTargetAction;
+    const valEl = document.getElementById('f-value');
+    const note = document.getElementById('f-note').value.trim();
+    const logRow = { action_id: a.id, note: note || null };
+    if(a.value_type === 'number'){ logRow.value_number = parseFloat(valEl.value); }
+    else { logRow.value_bool = valEl.value === 'yes'; }
+    await supabase.from('action_logs').insert(logRow);
+    await supabase.from('actions').update({ status: 'done' }).eq('id', a.id);
+    if(a.goal_id && a.value_type === 'number' && !isNaN(logRow.value_number)){
+      await supabase.from('goals').update({ current: logRow.value_number }).eq('id', a.goal_id);
+    }
+  }
+  document.getElementById('add-overlay').classList.remove('open');
+  await loadAll();
+  renderActive();
+  showToast('Saved.');
+}
+
+// ---------------- EVENT DELEGATION ----------------
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  if(action === 'vision-review') openVisionOverlay('review');
+  else if(action === 'vision-startover') openVisionOverlay('startover');
+  else if(action === 'close-vision-overlay') document.getElementById('vision-overlay').classList.remove('open');
+  else if(action === 'save-vision') saveVisionVersion();
+  else if(action === 'nav-pillar') showPanel('pillar', el.dataset.id);
+  else if(action === 'toggle-goal') toggleGoalDone(el.dataset.id);
+  else if(action === 'cycle-day') cycleDay(el.dataset.id, el.dataset.date, el.dataset.state);
+  else if(action === 'toggle-action') toggleAction(el.dataset.id);
+  else if(action === 'log-action') logAction(el.dataset.id);
+  else if(action === 'open-add-goal') openAddOverlay('goal');
+  else if(action === 'open-add-habit') openAddOverlay('habit');
+  else if(action === 'open-add-action') openAddOverlay('action');
+  else if(action === 'close-add-overlay') document.getElementById('add-overlay').classList.remove('open');
+  else if(action === 'save-add') saveAdd();
+});
+document.querySelectorAll('.navitem[data-nav]').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    if(el.dataset.nav === 'pillar') return; // handled by data-pillar buttons directly below
+    showPanel(el.dataset.nav);
+  });
+});
+document.addEventListener('click', (e)=>{
+  const el = e.target.closest('.navitem[data-pillar]');
+  if(el) showPanel('pillar', el.dataset.pillar);
+});
+
+boot();
+</script>
+</body>
+</html>
