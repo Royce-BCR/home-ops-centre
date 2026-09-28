@@ -125,6 +125,24 @@
   .row2 > .field{flex:1;}
   .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; display:none;}
 
+  .tabs{display:flex; gap:6px; margin-top:16px; flex-wrap:wrap;}
+  .tab{font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface); cursor:pointer;}
+  .tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .rp-item{border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-top:10px;}
+  .chapter-grid{display:flex; flex-wrap:wrap; gap:5px; margin:8px 0;}
+  .chapter{width:24px; height:24px; border-radius:5px; border:1.5px solid var(--border); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted);}
+  .chapter.done{background:var(--accent); border-color:var(--accent); color:#fff;}
+  details.archive{margin-top:12px;}
+  details.archive summary{font-size:12px; font-weight:700; color:var(--muted); cursor:pointer; padding:6px 0;}
+  .imp-form{display:flex; flex-direction:column; gap:10px;}
+  .source-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .source-btn{font-size:12px; font-weight:700; padding:6px 12px; border-radius:16px; border:1px solid var(--border); background:var(--surface); cursor:pointer;}
+  .source-btn.selected{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .imp-entry{border-bottom:1px solid var(--border); padding:12px 0;}
+  .imp-entry:last-child{border-bottom:none;}
+  .imp-meta{display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--muted); margin-bottom:4px;}
+  .photo-thumb{max-width:220px; border-radius:8px; margin-top:6px; display:block;}
+
   @media (max-width:860px){
     .app-shell{flex-direction:column;}
     .sidebar{width:100%; height:auto; position:static; flex-direction:row; overflow-x:auto; padding:12px;}
@@ -169,8 +187,11 @@
     <div id="pillar-nav"></div>
     <div class="navgroup-label">EXECUTION</div>
     <button class="navitem" data-nav="actions">Actions</button>
+    <div class="navgroup-label">READING &amp; REFLECTION</div>
+    <button class="navitem" data-nav="reading">Reading Plan</button>
+    <button class="navitem" data-nav="impressions">Impressions</button>
     <div class="sidebar-foot">
-      Phase 1 — Vision &amp; Goals. Reading Plan, Finance, Meetings and more arrive in later phases.
+      Phase 1–2 — Vision, Goals, Reading Plan &amp; Impressions. Finance, Meetings and more arrive in later phases.
       <button id="signout-btn">Sign out</button>
     </div>
   </nav>
@@ -233,6 +254,34 @@
       <div class="card" id="actions-flat"></div>
     </section>
 
+    <section class="panel" id="panel-reading">
+      <div class="eyebrow">Reading &amp; Reflection · Moral pillar</div>
+      <h1 class="pagetitle">Reading Plan</h1>
+      <p class="subtitle">White Books, Ministry, Other, and a Bible placeholder.</p>
+      <div class="card">
+        <div class="tabs" id="rp-tabs"></div>
+        <div id="rp-body"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-impressions">
+      <div class="eyebrow">Reading &amp; Reflection · Moral pillar</div>
+      <h1 class="pagetitle">Impressions Log</h1>
+      <p class="subtitle">Log from here directly, or from within a reading session — both land in the same place.</p>
+      <div class="card">
+        <div class="imp-form">
+          <div class="source-row" id="imp-source-row"></div>
+          <input type="text" id="imp-link" placeholder="Optional: which book / chapter, or free-text tag">
+          <textarea id="imp-text" placeholder="What stood out?"></textarea>
+          <div class="field"><label>Or attach a photo (caption below, since auto-summary isn't wired up yet)</label><input type="file" id="imp-photo" accept="image/*" capture="environment"></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn primary" data-action="submit-impression">Add impression</button>
+          </div>
+        </div>
+        <div style="margin-top:16px;" id="imp-list"></div>
+      </div>
+    </section>
+
     <section class="panel" id="panel-pillar">
       <div class="eyebrow" id="pillar-eyebrow">Pillar</div>
       <h1 class="pagetitle" id="pillar-title">Pillar name</h1>
@@ -243,6 +292,7 @@
       <div class="card" id="pillar-habits"></div>
       <div class="section-label">Actions</div>
       <div class="card" id="pillar-actions"></div>
+      <div id="pillar-extra"></div>
     </section>
 
   </main>
@@ -329,8 +379,9 @@ document.getElementById('signout-btn').addEventListener('click', async ()=>{
 
 // ---------------- STATE ----------------
 let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [], VISIONS = [];
+let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [];
 let visionIndex = 0;
-let state = { pillar: null, panel: 'today' };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading' };
 
 async function boot(){
   const { data: { session } } = await supabase.auth.getSession();
@@ -342,15 +393,21 @@ async function boot(){
 }
 
 async function loadAll(){
-  const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions }] = await Promise.all([
+  const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions },
+         { data: whiteBooks }, { data: projects }, { data: chapters }, { data: impressions }] = await Promise.all([
     supabase.from('pillars').select('*').order('sort_order'),
     supabase.from('goals').select('*').order('created_at'),
     supabase.from('habits').select('*').order('created_at'),
     supabase.from('habit_logs').select('*').gte('log_date', daysAgoStr(6)),
     supabase.from('actions').select('*').order('created_at'),
     supabase.from('vision_versions').select('*').order('created_at'),
+    supabase.from('reading_white_books').select('*').order('created_at'),
+    supabase.from('reading_projects').select('*').order('created_at'),
+    supabase.from('reading_project_chapters').select('*').order('chapter_number'),
+    supabase.from('impressions').select('*').order('created_at', { ascending: false }),
   ]);
   PILLARS = pillars || []; GOALS = goals || []; HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS = actions || []; VISIONS = visions || [];
+  WHITE_BOOKS = whiteBooks || []; PROJECTS = projects || []; CHAPTERS = chapters || []; IMPRESSIONS = impressions || [];
   visionIndex = VISIONS.length - 1;
   renderSidebarPillars();
 }
@@ -377,7 +434,8 @@ function showPanel(name, pillarId){
 }
 function renderActive(){
   ({ today: renderToday, vision: renderVision, balance: renderBalance, goals: renderGoalsFlat,
-     habits: renderHabitsFlat, actions: renderActionsFlat, pillar: renderPillar })[state.panel]?.();
+     habits: renderHabitsFlat, actions: renderActionsFlat, pillar: renderPillar,
+     reading: renderReadingPanel, impressions: renderImpressionsPanel })[state.panel]?.();
 }
 
 // ---------------- GOAL CARD ----------------
@@ -594,6 +652,151 @@ function renderPillar(){
   document.getElementById('pillar-habits').innerHTML = habits.length ? habits.map(h=>habitRowHTML(h,false)).join('') : '<p class="empty">No habits here yet.</p>';
   const actions = ACTIONS.filter(a=>a.pillar_id===pil.id);
   document.getElementById('pillar-actions').innerHTML = actions.length ? actions.map(a=>actionRowHTML(a,false)).join('') : '<p class="empty">No actions here yet.</p>';
+  document.getElementById('pillar-extra').innerHTML = pil.id === 'moral' ?
+    `<div class="section-label">Reading &amp; Reflection</div><div class="card" style="display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn" data-action="nav-simple" data-target="reading">Open Reading Plan →</button>
+      <button class="btn" data-action="nav-simple" data-target="impressions">Open Impressions Log →</button>
+    </div>` : '';
+}
+
+// ---------------- READING PLAN ----------------
+function renderReadingPanel(){
+  document.getElementById('rp-tabs').innerHTML = ['whitebooks:White Books','ministry:Ministry','other:Other','bible:Bible'].map(t=>{
+    const [key,label]=t.split(':');
+    return `<button class="tab ${state.rpTab===key?'active':''}" data-action="set-rp-tab" data-key="${key}">${label}</button>`;
+  }).join('');
+  renderReadingBody();
+}
+function renderReadingBody(){
+  const body = document.getElementById('rp-body');
+  if(state.rpTab === 'bible'){
+    body.innerHTML = `<p class="empty">Placeholder section — the Bible reading tracker arrives in a later phase.</p>`;
+    return;
+  }
+  if(state.rpTab === 'whitebooks'){
+    const active = WHITE_BOOKS.filter(b=>!b.completed);
+    const archive = WHITE_BOOKS.filter(b=>b.completed);
+    body.innerHTML = `
+      <div class="field" style="max-width:420px;"><label>Add a White Book</label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="wb-number" placeholder="WB1036" style="max-width:110px;">
+          <input type="date" id="wb-received">
+          <input type="number" id="wb-pages" placeholder="Pages" style="max-width:90px;">
+          <button class="btn small primary" data-action="add-white-book">Add</button>
+        </div>
+      </div>
+      ${active.map(b=>`<div class="rp-item"><strong>${b.number}</strong> · ${b.pages||'?'} pages · received ${b.date_received||'—'}
+        <button class="btn small" style="margin-left:8px;" data-action="complete-white-book" data-id="${b.id}">Mark complete</button></div>`).join('') || '<p class="empty">No white books logged yet.</p>'}
+      <details class="archive"><summary>Archive (${archive.length})</summary>
+      ${archive.map(b=>`<div class="rp-item"><strong>${b.number}</strong> · ${b.pages||'?'} pages · completed ${b.completed_date||'—'}
+        <button class="btn small" data-action="unarchive-white-book" data-id="${b.id}">Undo</button></div>`).join('')}
+      </details>`;
+    return;
+  }
+  const section = state.rpTab;
+  const projects = PROJECTS.filter(p=>p.section===section);
+  const active = projects.filter(p=>!p.completed);
+  const archive = projects.filter(p=>p.completed);
+  body.innerHTML = `
+    <div class="field" style="max-width:460px;"><label>Add a ${section === 'ministry' ? 'Ministry' : 'Other'} reading project</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <input type="text" id="pr-title" placeholder="Title" style="flex:1; min-width:140px;">
+        <input type="number" id="pr-chapters" placeholder="Chapters" style="max-width:90px;">
+        <input type="number" id="pr-pages" placeholder="Pages/ch" style="max-width:90px;">
+        <input type="date" id="pr-start">
+        <button class="btn small primary" data-action="add-project" data-section="${section}">Add</button>
+      </div>
+    </div>
+    ${active.map(p=>projectHTML(p)).join('') || '<p class="empty">No projects yet.</p>'}
+    <details class="archive"><summary>Archive (${archive.length})</summary>
+    ${archive.map(p=>`<div class="rp-item"><strong>${p.title}</strong> · completed ${p.completed_date||'—'}</div>`).join('')}
+    </details>`;
+}
+function projectHTML(p){
+  const chapters = CHAPTERS.filter(c=>c.project_id===p.id).sort((a,b)=>a.chapter_number-b.chapter_number);
+  const done = chapters.filter(c=>c.done).length;
+  return `<div class="rp-item"><strong>${p.title}</strong><div class="habit-sub">${p.total_chapters} chapters · ${p.pages_per_chapter||'?'} pages each · started ${p.start_date||'—'}</div>
+    <div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
+    <div class="barTrack"><div class="barFill" style="width:${Math.round(done/p.total_chapters*100)}%; background:var(--accent);"></div></div>
+    <button class="btn small primary" style="margin-top:8px;" data-action="complete-project" data-id="${p.id}">Mark project complete</button></div>`;
+}
+async function addWhiteBook(){
+  const number = document.getElementById('wb-number').value.trim();
+  if(!number){ showToast('A number is required.'); return; }
+  const row = { number, date_received: document.getElementById('wb-received').value || null, pages: parseInt(document.getElementById('wb-pages').value)||null };
+  const { error } = await supabase.from('reading_white_books').insert(row);
+  if(error){ showToast('Could not save: '+error.message); return; }
+  await loadAll(); renderReadingPanel();
+}
+async function completeWhiteBook(id){
+  await supabase.from('reading_white_books').update({ completed: true, completed_date: todayStr() }).eq('id', id);
+  await loadAll(); renderReadingPanel();
+}
+async function unarchiveWhiteBook(id){
+  await supabase.from('reading_white_books').update({ completed: false, completed_date: null }).eq('id', id);
+  await loadAll(); renderReadingPanel();
+}
+async function addProject(section){
+  const title = document.getElementById('pr-title').value.trim();
+  const totalChapters = parseInt(document.getElementById('pr-chapters').value);
+  if(!title || !totalChapters){ showToast('Title and chapter count are required.'); return; }
+  const row = { section, title, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
+  const { data, error } = await supabase.from('reading_projects').insert(row).select();
+  if(error){ showToast('Could not save: '+error.message); return; }
+  const project = data[0];
+  const chapterRows = Array.from({length: totalChapters}, (_,i)=>({ project_id: project.id, chapter_number: i+1 }));
+  await supabase.from('reading_project_chapters').insert(chapterRows);
+  await loadAll(); renderReadingPanel();
+}
+async function toggleChapter(id){
+  const c = CHAPTERS.find(x=>x.id===id);
+  const { error } = await supabase.from('reading_project_chapters').update({ done: !c.done, completed_date: !c.done ? todayStr() : null }).eq('id', id);
+  if(error){ showToast('Could not save: '+error.message); return; }
+  c.done = !c.done;
+  renderReadingBody();
+}
+async function completeProject(id){
+  await supabase.from('reading_projects').update({ completed: true, completed_date: todayStr() }).eq('id', id);
+  await loadAll(); renderReadingPanel();
+}
+
+// ---------------- IMPRESSIONS ----------------
+function renderImpressionsPanel(){
+  document.getElementById('imp-source-row').innerHTML = ['Reading','Bible','Meeting','Recordings','Other'].map(s=>
+    `<button class="source-btn ${state.impSource===s?'selected':''}" data-action="set-imp-source" data-source="${s}">${s}</button>`
+  ).join('');
+  renderImpressionsList();
+}
+async function renderImpressionsList(){
+  const list = document.getElementById('imp-list');
+  list.innerHTML = IMPRESSIONS.length ? await Promise.all(IMPRESSIONS.map(async e=>{
+    let photoTag = '';
+    if(e.photo_url){
+      const { data } = await supabase.storage.from('impression-photos').createSignedUrl(e.photo_url, 3600);
+      if(data?.signedUrl) photoTag = `<img class="photo-thumb" src="${data.signedUrl}">`;
+    }
+    return `<div class="imp-entry"><div class="imp-meta"><span class="tag habit" style="background:var(--accent-bg); color:var(--accent);">${e.source}</span>${e.link?`<span>${e.link}</span>`:''}<span>· ${new Date(e.created_at).toLocaleDateString()}</span></div><div>${e.content}</div>${photoTag}</div>`;
+  })).then(arr=>arr.join('')) : '<p class="empty">No impressions logged yet.</p>';
+}
+async function submitImpression(){
+  const text = document.getElementById('imp-text').value.trim();
+  const link = document.getElementById('imp-link').value.trim();
+  const fileEl = document.getElementById('imp-photo');
+  const file = fileEl.files[0];
+  if(!text && !file){ showToast('Add some text or a photo first.'); return; }
+  let photoUrl = null;
+  if(file){
+    const path = `${crypto.randomUUID()}-${file.name}`;
+    const { error: upErr } = await supabase.storage.from('impression-photos').upload(path, file);
+    if(upErr){ showToast('Photo upload failed: '+upErr.message); return; }
+    photoUrl = path;
+  }
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('impressions').insert({ source: state.impSource, link: link||null, content: text || '(photo, no caption)', photo_url: photoUrl, created_by: user?.id });
+  if(error){ showToast('Could not save: '+error.message); return; }
+  document.getElementById('imp-text').value=''; document.getElementById('imp-link').value=''; fileEl.value='';
+  await loadAll(); renderImpressionsPanel();
+  showToast('Impression added.');
 }
 
 // ---------------- ADD OVERLAY (Goal / Habit / Action / Log) ----------------
@@ -752,6 +955,16 @@ document.addEventListener('click', (e)=>{
   else if(action === 'open-add-action') openAddOverlay('action');
   else if(action === 'close-add-overlay') document.getElementById('add-overlay').classList.remove('open');
   else if(action === 'save-add') saveAdd();
+  else if(action === 'nav-simple') showPanel(el.dataset.target);
+  else if(action === 'set-rp-tab'){ state.rpTab = el.dataset.key; renderReadingPanel(); }
+  else if(action === 'add-white-book') addWhiteBook();
+  else if(action === 'complete-white-book') completeWhiteBook(el.dataset.id);
+  else if(action === 'unarchive-white-book') unarchiveWhiteBook(el.dataset.id);
+  else if(action === 'add-project') addProject(el.dataset.section);
+  else if(action === 'toggle-chapter') toggleChapter(el.dataset.id);
+  else if(action === 'complete-project') completeProject(el.dataset.id);
+  else if(action === 'set-imp-source'){ state.impSource = el.dataset.source; renderImpressionsPanel(); }
+  else if(action === 'submit-impression') submitImpression();
 });
 document.querySelectorAll('.navitem[data-nav]').forEach(el=>{
   el.addEventListener('click', ()=>{
