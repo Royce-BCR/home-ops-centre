@@ -143,6 +143,29 @@
   .imp-meta{display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--muted); margin-bottom:4px;}
   .photo-thumb{max-width:220px; border-radius:8px; margin-top:6px; display:block;}
 
+  /* Ownership / view toggle */
+  .owner-dot{width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; flex-shrink:0;}
+  .owner-badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--muted);}
+  .tag.joint{background:#EEF1F3; color:#5B6B7A;}
+  .view-toggle{display:inline-flex; border:1px solid var(--border); border-radius:20px; overflow:hidden;}
+  .view-toggle button{border:none; background:var(--surface); padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; color:var(--muted);}
+  .view-toggle button.active{background:var(--accent); color:#fff;}
+
+  /* Vision columns */
+  .vision-cols{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  .vision-col{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:14px 16px;}
+  .vision-col h3{font-size:12.5px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
+  @media (max-width:760px){ .vision-cols{grid-template-columns:1fr;} }
+
+  /* 5PRP table */
+  .fivep-scroll{overflow-x:auto; margin-top:16px;}
+  table.fivep{border-collapse:collapse; width:100%; min-width:820px;}
+  table.fivep th{font-size:11.5px; font-weight:700; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap;}
+  table.fivep td{border:1px solid var(--border); padding:8px; vertical-align:top; min-width:110px;}
+  table.fivep textarea{min-height:54px; font-size:12.5px;}
+  .fivep-entry{font-size:12px; margin-bottom:6px; display:flex; gap:6px; align-items:flex-start;}
+  .fivep-entry .owner-dot{margin-top:1px;}
+
   @media (max-width:860px){
     .app-shell{flex-direction:column;}
     .sidebar{width:100%; height:auto; position:static; flex-direction:row; overflow-x:auto; padding:12px;}
@@ -183,6 +206,7 @@
     <button class="navitem" data-nav="balance">Balance Map</button>
     <button class="navitem" data-nav="goals">Goals</button>
     <button class="navitem" data-nav="habits">Habits</button>
+    <button class="navitem" data-nav="fivepoint">5-Point Reset Plan</button>
     <div class="navgroup-label">PILLARS</div>
     <div id="pillar-nav"></div>
     <div class="navgroup-label">EXECUTION</div>
@@ -219,6 +243,7 @@
         </div>
       </div>
       <p class="subtitle">Distinct from Goals — this is about identity, not accomplishment.</p>
+      <div style="margin-top:12px;"><div class="view-toggle" id="vision-view-toggle"><button data-view="all" class="active">All</button><button data-view="mine">Mine</button></div></div>
       <div class="card" id="vision-display"></div>
       <div class="version-nav" id="version-nav" style="display:none;">
         <button id="v-prev">&lt;</button><span id="v-label"></span><button id="v-next">&gt;</button>
@@ -236,16 +261,31 @@
     </section>
 
     <section class="panel" id="panel-goals">
-      <div class="section-label" style="margin-top:0;">Goals <button class="btn small" data-action="open-add-goal">+ Add goal</button></div>
+      <div class="headrow">
+        <div class="section-label" style="margin-top:0;">Goals <button class="btn small" data-action="open-add-goal">+ Add goal</button></div>
+        <div class="view-toggle" id="goals-view-toggle"><button data-view="all" class="active">All</button><button data-view="mine">Mine</button></div>
+      </div>
       <h1 class="pagetitle" style="font-size:22px;">Every pillar, one list</h1>
       <div id="goals-flat"></div>
     </section>
 
     <section class="panel" id="panel-habits">
-      <div class="section-label" style="margin-top:0;">Habits <button class="btn small" data-action="open-add-habit">+ Add habit</button></div>
+      <div class="headrow">
+        <div class="section-label" style="margin-top:0;">Habits <button class="btn small" data-action="open-add-habit">+ Add habit</button></div>
+        <div class="view-toggle" id="habits-view-toggle"><button data-view="all" class="active">All</button><button data-view="mine">Mine</button></div>
+      </div>
       <h1 class="pagetitle" style="font-size:22px;">Tap a day to cycle its state</h1>
-      <p class="subtitle">Green tick → red cross → grey dash (excused) → blank.</p>
+      <p class="subtitle">Green tick → red cross → grey dash (excused) → blank. Every habit belongs to one person.</p>
       <div class="card" id="habits-flat"></div>
+    </section>
+
+    <section class="panel" id="panel-fivepoint">
+      <div class="headrow">
+        <div><div class="eyebrow">Vision &amp; Goals</div><h1 class="pagetitle" style="font-size:22px;">5-Point Reset Plan</h1></div>
+        <div class="view-toggle" id="fivep-view-toggle"><button data-view="mine" class="active">Mine</button><button data-view="all">All</button></div>
+      </div>
+      <p class="subtitle">Five reset points per pillar. Switch to "Mine" to write your own; "All" shows both of yours side by side.</p>
+      <div class="fivep-scroll"><table class="fivep" id="fivep-table"></table></div>
     </section>
 
     <section class="panel" id="panel-actions">
@@ -292,6 +332,8 @@
       <div class="card" id="pillar-habits"></div>
       <div class="section-label">Actions</div>
       <div class="card" id="pillar-actions"></div>
+      <div class="section-label">5-Point Reset Plan</div>
+      <div class="card" id="pillar-fivep"></div>
       <div id="pillar-extra"></div>
     </section>
 
@@ -380,12 +422,14 @@ document.getElementById('signout-btn').addEventListener('click', async ()=>{
 // ---------------- STATE ----------------
 let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [], VISIONS = [];
 let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [];
+let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let visionIndex = 0;
-let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading' };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', visionView: 'all', fivepView: 'mine' };
 
 async function boot(){
   const { data: { session } } = await supabase.auth.getSession();
   if(!session){ return; }
+  currentUserId = session.user.id;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   await loadAll();
@@ -394,7 +438,8 @@ async function boot(){
 
 async function loadAll(){
   const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions },
-         { data: whiteBooks }, { data: projects }, { data: chapters }, { data: impressions }] = await Promise.all([
+         { data: whiteBooks }, { data: projects }, { data: chapters }, { data: impressions },
+         { data: profs }, { data: resetEntries }] = await Promise.all([
     supabase.from('pillars').select('*').order('sort_order'),
     supabase.from('goals').select('*').order('created_at'),
     supabase.from('habits').select('*').order('created_at'),
@@ -405,15 +450,40 @@ async function loadAll(){
     supabase.from('reading_projects').select('*').order('created_at'),
     supabase.from('reading_project_chapters').select('*').order('chapter_number'),
     supabase.from('impressions').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('*'),
+    supabase.from('reset_plan_entries').select('*'),
   ]);
   PILLARS = pillars || []; GOALS = goals || []; HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS = actions || []; VISIONS = visions || [];
   WHITE_BOOKS = whiteBooks || []; PROJECTS = projects || []; CHAPTERS = chapters || []; IMPRESSIONS = impressions || [];
+  PROFILES = profs || []; RESET_ENTRIES = resetEntries || [];
   visionIndex = VISIONS.length - 1;
   renderSidebarPillars();
 }
 
 function pillarOf(id){ return PILLARS.find(p=>p.id===id); }
 function goalOf(id){ return GOALS.find(g=>g.id===id); }
+function profileOf(id){ return PROFILES.find(p=>p.id===id); }
+function isRoyce(p){ return (p?.display_name||'').toLowerCase().includes('royce'); }
+function isHeidi(p){ return (p?.display_name||'').toLowerCase().includes('heidi'); }
+function profileColor(p){ if(isRoyce(p)) return '#2D6A5F'; if(isHeidi(p)) return '#C4674A'; return '#8A8680'; }
+function profileInitial(p){ return (p?.display_name||'?').trim().charAt(0).toUpperCase() || '?'; }
+function ownerDotHTML(ownerId){
+  const p = profileOf(ownerId);
+  return `<span class="owner-dot" title="${p?p.display_name:'Unknown'}" style="background:${profileColor(p)};">${profileInitial(p)}</span>`;
+}
+function ownerBadgeHTML(ownerId){
+  if(!ownerId) return '<span class="tag joint">HOUSEHOLD</span>';
+  const p = profileOf(ownerId);
+  return `<span class="owner-badge">${ownerDotHTML(ownerId)}${p?p.display_name:'Unknown'}</span>`;
+}
+function habitOwnerBadgeHTML(ownerId){
+  if(!ownerId) return '<span class="tag" style="background:#FDF0E4; color:#B3661A;">UNASSIGNED — edit needed</span>';
+  const p = profileOf(ownerId);
+  return `<span class="owner-badge">${ownerDotHTML(ownerId)}${p?p.display_name:'Unknown'}</span>`;
+}
+function profileOptions(selected){
+  return PROFILES.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.display_name}</option>`).join('');
+}
 
 function renderSidebarPillars(){
   document.getElementById('pillar-nav').innerHTML = PILLARS.map(p=>
@@ -435,7 +505,7 @@ function showPanel(name, pillarId){
 function renderActive(){
   ({ today: renderToday, vision: renderVision, balance: renderBalance, goals: renderGoalsFlat,
      habits: renderHabitsFlat, actions: renderActionsFlat, pillar: renderPillar,
-     reading: renderReadingPanel, impressions: renderImpressionsPanel })[state.panel]?.();
+     reading: renderReadingPanel, impressions: renderImpressionsPanel, fivepoint: renderFivePoint })[state.panel]?.();
 }
 
 // ---------------- GOAL CARD ----------------
@@ -455,7 +525,7 @@ function goalCardHTML(g, showPillarTag){
       <label style="cursor:pointer;"><input type="checkbox" ${g.done?'checked':''} data-action="toggle-goal" data-id="${g.id}"> ${g.done?'Achieved':'Mark achieved'}</label></div>`;
   }
   return `<div class="goal-card"><div class="headrow"><div><div class="goal-title">${g.title}${g.is_focus?' <span class="tag focus">CURRENT FOCUS</span>':''}${showPillarTag&&pil?` <span class="tag pillar">${pil.name}</span>`:''}</div>
-    <div class="goal-level">${g.deadline ? 'deadline '+g.deadline : 'no deadline set'}</div></div></div>${body}</div>`;
+    <div class="goal-level">${g.deadline ? 'deadline '+g.deadline : 'no deadline set'} · ${ownerBadgeHTML(g.owner_id)}</div></div></div>${body}</div>`;
 }
 
 // ---------------- TODAY ----------------
@@ -491,13 +561,72 @@ function renderVision(){
     return;
   }
   const v = VISIONS[visionIndex];
-  document.getElementById('vision-display').innerHTML = VISION_FIELDS.map(f=>
-    `<div class="vision-block"><h3>${f.label}</h3><p>${v[f.id] || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`
-  ).join('');
+  const myProfile = profileOf(currentUserId);
+  const mineOnly = state.visionView === 'mine';
+  const known = isRoyce(myProfile) || isHeidi(myProfile);
+  const showRoyce = !mineOnly || !known || isRoyce(myProfile);
+  const showHeidi = !mineOnly || !known || isHeidi(myProfile);
+  let cols = `<div class="vision-col"><h3><span class="tag joint">HOUSEHOLD</span></h3><p>${v.household || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`;
+  if(showRoyce) cols += `<div class="vision-col"><h3>${ownerDotHTML(findProfileIdByName('royce'))} Royce</h3><p>${v.royce || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`;
+  if(showHeidi) cols += `<div class="vision-col"><h3>${ownerDotHTML(findProfileIdByName('heidi'))} Heidi</h3><p>${v.heidi || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`;
+  const shared = [{id:'core_values',label:'Core Values'},{id:'swot',label:'SWOT'},{id:'wishlist',label:'Lifetime Wish List'},{id:'other',label:'Other'}];
+  document.getElementById('vision-display').innerHTML = `<div class="vision-cols">${cols}</div>` +
+    shared.map(f=>`<div class="vision-block"><h3>${f.label}</h3><p>${v[f.id] || '<em style="color:var(--muted);">— empty —</em>'}</p></div>`).join('');
   document.getElementById('version-nav').style.display = 'flex';
   document.getElementById('v-label').textContent = `Version ${visionIndex+1} of ${VISIONS.length} · ${new Date(v.created_at).toLocaleString()}`;
   document.getElementById('v-prev').disabled = visionIndex<=0;
   document.getElementById('v-next').disabled = visionIndex>=VISIONS.length-1;
+}
+function findProfileIdByName(name){
+  const p = PROFILES.find(p=> (p.display_name||'').toLowerCase().includes(name));
+  return p ? p.id : null;
+}
+
+// ---------------- 5-POINT RESET PLAN ----------------
+function renderFivePoint(){
+  const table = document.getElementById('fivep-table');
+  let header = '<tr><th>Point</th>' + PILLARS.map(p=>`<th style="color:${p.color};">${p.name}</th>`).join('') + '</tr>';
+  let rows = '';
+  for(let pt=1; pt<=5; pt++){
+    rows += `<tr><th>${pt}</th>`;
+    PILLARS.forEach(p=>{
+      if(state.fivepView === 'mine'){
+        const entry = RESET_ENTRIES.find(e=>e.pillar_id===p.id && e.point_number===pt && e.owner_id===currentUserId);
+        rows += `<td><textarea data-pillar="${p.id}" data-point="${pt}">${entry?entry.content:''}</textarea></td>`;
+      } else {
+        const entries = RESET_ENTRIES.filter(e=>e.pillar_id===p.id && e.point_number===pt && e.content && e.content.trim());
+        rows += `<td>${entries.length ? entries.map(e=>`<div class="fivep-entry">${ownerDotHTML(e.owner_id)}<span>${e.content}</span></div>`).join('') : '<span style="color:var(--muted); font-size:12px;">—</span>'}</td>`;
+      }
+    });
+    rows += '</tr>';
+  }
+  table.innerHTML = header + rows;
+  if(state.fivepView === 'mine'){
+    table.querySelectorAll('textarea').forEach(t=>{
+      t.addEventListener('focusout', ()=> saveFivePoint(t.dataset.pillar, parseInt(t.dataset.point), t.value));
+    });
+  }
+}
+async function saveFivePoint(pillarId, point, content){
+  const { error } = await supabase.from('reset_plan_entries').upsert(
+    { pillar_id: pillarId, point_number: point, owner_id: currentUserId, content, updated_at: new Date().toISOString() },
+    { onConflict: 'pillar_id,point_number,owner_id' }
+  );
+  if(error){ showToast('Could not save: '+error.message); return; }
+  const idx = RESET_ENTRIES.findIndex(e=>e.pillar_id===pillarId && e.point_number===point && e.owner_id===currentUserId);
+  if(idx>-1) RESET_ENTRIES[idx].content = content;
+  else RESET_ENTRIES.push({ pillar_id: pillarId, point_number: point, owner_id: currentUserId, content });
+  showToast('Saved.');
+}
+function fivePointPillarHTML(pillarId){
+  let out = '';
+  for(let pt=1; pt<=5; pt++){
+    const entries = RESET_ENTRIES.filter(e=>e.pillar_id===pillarId && e.point_number===pt && e.content && e.content.trim());
+    out += `<div style="margin-bottom:10px;"><div style="font-size:11.5px; font-weight:700; color:var(--muted); margin-bottom:3px;">Point ${pt}</div>`+
+      (entries.length ? entries.map(e=>`<div class="fivep-entry">${ownerDotHTML(e.owner_id)}<span>${e.content}</span></div>`).join('') : '<span style="color:var(--muted); font-size:12px;">—</span>') +
+      `</div>`;
+  }
+  return out;
 }
 document.getElementById('v-prev').addEventListener('click', ()=>{ if(visionIndex>0){ visionIndex--; renderVision(); } });
 document.getElementById('v-next').addEventListener('click', ()=>{ if(visionIndex<VISIONS.length-1){ visionIndex++; renderVision(); } });
@@ -572,7 +701,8 @@ function renderBalance(){
 
 // ---------------- FLAT GOALS / HABITS / ACTIONS ----------------
 function renderGoalsFlat(){
-  document.getElementById('goals-flat').innerHTML = GOALS.length ? GOALS.map(g=>goalCardHTML(g,true)).join('') : '<p class="empty">No goals yet — add your first one.</p>';
+  const filtered = state.goalsView==='mine' ? GOALS.filter(g=> g.owner_id===currentUserId || !g.owner_id) : GOALS;
+  document.getElementById('goals-flat').innerHTML = filtered.length ? filtered.map(g=>goalCardHTML(g,true)).join('') : '<p class="empty">No goals to show here.</p>';
 }
 function habitRowHTML(h, showPillar){
   const pil = pillarOf(h.pillar_id);
@@ -584,11 +714,12 @@ function habitRowHTML(h, showPillar){
   let streak = 0;
   for(let i=days.length-1;i>=0;i--){ const s=days[i].state; if(!s) continue; if(s==='g'){streak++;continue;} if(s==='x')continue; if(s==='r')break; }
   return `<div class="habit-row"><div><div class="habit-name">${h.name}${showPillar&&pil?` <span class="tag pillar">${pil.name}</span>`:''}</div>
-  <div class="habit-sub">${h.cadence} · ${streak} day streak · ${compliance}% (7d)</div></div>
+  <div class="habit-sub">${h.cadence} · ${streak} day streak · ${compliance}% (7d) · ${habitOwnerBadgeHTML(h.owner_id)}</div></div>
   <div class="days">${days.map(d=>`<div class="day" data-s="${d.state}" data-action="cycle-day" data-id="${h.id}" data-date="${d.date}" data-state="${d.state}">${d.state==='g'?'✓':d.state==='r'?'✕':d.state==='x'?'–':''}</div>`).join('')}</div></div>`;
 }
 function renderHabitsFlat(){
-  document.getElementById('habits-flat').innerHTML = HABITS.length ? HABITS.map(h=>habitRowHTML(h,true)).join('') : '<p class="empty">No habits yet — add your first one.</p>';
+  const filtered = state.habitsView==='mine' ? HABITS.filter(h=>h.owner_id===currentUserId) : HABITS;
+  document.getElementById('habits-flat').innerHTML = filtered.length ? filtered.map(h=>habitRowHTML(h,true)).join('') : '<p class="empty">No habits to show here.</p>';
 }
 function actionRowHTML(a, showPillar){
   const pil = pillarOf(a.pillar_id);
@@ -652,6 +783,7 @@ function renderPillar(){
   document.getElementById('pillar-habits').innerHTML = habits.length ? habits.map(h=>habitRowHTML(h,false)).join('') : '<p class="empty">No habits here yet.</p>';
   const actions = ACTIONS.filter(a=>a.pillar_id===pil.id);
   document.getElementById('pillar-actions').innerHTML = actions.length ? actions.map(a=>actionRowHTML(a,false)).join('') : '<p class="empty">No actions here yet.</p>';
+  document.getElementById('pillar-fivep').innerHTML = fivePointPillarHTML(pil.id);
   document.getElementById('pillar-extra').innerHTML = pil.id === 'moral' ?
     `<div class="section-label">Reading &amp; Reflection</div><div class="card" style="display:flex; gap:12px; flex-wrap:wrap;">
       <button class="btn" data-action="nav-simple" data-target="reading">Open Reading Plan →</button>
@@ -832,6 +964,7 @@ function openAddOverlay(mode, action){
         <div class="field"><label>Deadline</label><input type="date" id="f-deadline"></div>
         <div class="field"><label>Long-term note</label><input type="text" id="f-longterm" placeholder="First home & financial security"></div>
       </div>
+      <div class="field"><label>Whose goal is this?</label><select id="f-owner"><option value="">Household (joint)</option>${profileOptions()}</select></div>
       <div class="field"><label><input type="checkbox" id="f-focus"> Mark as current focus (the ONE Thing)</label></div>
     `;
   } else if(mode === 'habit'){
@@ -842,6 +975,7 @@ function openAddOverlay(mode, action){
         <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions()}</select></div>
         <div class="field"><label>Cadence</label><select id="f-cadence"><option>Daily</option><option>Weekly</option><option>A few times a week</option><option>Monthly</option></select></div>
       </div>
+      <div class="field"><label>Whose habit is this?</label><select id="f-owner">${profileOptions(currentUserId)}</select></div>
       <div class="field"><label>Linked goal (optional)</label><select id="f-goal">${goalOptions()}</select></div>
     `;
   } else if(mode === 'action'){
@@ -884,6 +1018,7 @@ async function saveAdd(){
       deadline: document.getElementById('f-deadline').value || null,
       longterm_note: document.getElementById('f-longterm').value.trim(),
       is_focus: document.getElementById('f-focus').checked,
+      owner_id: document.getElementById('f-owner').value || null,
       done: false,
     };
     if(!row.title){ showToast('A title is required.'); return; }
@@ -895,9 +1030,11 @@ async function saveAdd(){
       name: document.getElementById('f-name').value.trim(),
       pillar_id: document.getElementById('f-pillar').value,
       cadence: document.getElementById('f-cadence').value,
+      owner_id: document.getElementById('f-owner').value,
       goal_id: document.getElementById('f-goal').value || null,
     };
     if(!row.name){ showToast('A name is required.'); return; }
+    if(!row.owner_id){ showToast('Choose whose habit this is.'); return; }
     const { error } = await supabase.from('habits').insert(row);
     if(error){ showToast('Could not save: '+error.message); return; }
   } else if(addMode === 'action'){
@@ -975,6 +1112,18 @@ document.querySelectorAll('.navitem[data-nav]').forEach(el=>{
 document.addEventListener('click', (e)=>{
   const el = e.target.closest('.navitem[data-pillar]');
   if(el) showPanel('pillar', el.dataset.pillar);
+});
+
+document.querySelectorAll('.view-toggle').forEach(group=>{
+  group.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const map = { 'goals-view-toggle':'goalsView', 'habits-view-toggle':'habitsView', 'vision-view-toggle':'visionView', 'fivep-view-toggle':'fivepView' };
+      const key = map[group.id];
+      if(key){ state[key] = btn.dataset.view; renderActive(); }
+    });
+  });
 });
 
 boot();
