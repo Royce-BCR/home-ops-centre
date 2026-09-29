@@ -54,10 +54,15 @@
   .navdot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
   .sidebar-foot{margin-top:auto; font-size:11px; color:var(--muted); padding:14px 10px 4px; line-height:1.5;}
   .sidebar-foot button{background:none; border:none; color:var(--accent); font-size:11px; font-weight:700; cursor:pointer; padding:0; margin-top:6px;}
+  .app-shell.collapsed .sidebar{width:0; padding:0; border:none; overflow:hidden;}
+  .collapse-btn{background:none; border:1px solid var(--border); border-radius:6px; width:26px; height:26px; cursor:pointer; color:var(--muted); font-size:13px; margin-left:auto;}
+  .show-sidebar-btn{display:none; position:fixed; top:16px; left:16px; z-index:40; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12.5px; font-weight:700; cursor:pointer;}
+  .app-shell.collapsed ~ .show-sidebar-btn{display:block;}
 
-  .main{flex:1; padding:32px 40px 60px; max-width:900px;}
+  .main{flex:1; padding:32px 40px 60px; max-width:900px; display:flex; flex-direction:column; min-width:0;}
+  .main.wide{max-width:none;}
   .panel{display:none;}
-  .panel.active{display:block;}
+  .panel.active{display:flex; flex-direction:column; flex:1; min-height:0;}
   .eyebrow{font-size:11.5px; font-weight:700; letter-spacing:0.06em; color:var(--muted);}
   .pagetitle{font-family:'Fraunces',serif; font-size:26px; font-weight:600; margin-top:4px;}
   .subtitle{font-size:14px; color:var(--muted); margin-top:6px; max-width:580px;}
@@ -157,14 +162,33 @@
   .vision-col h3{font-size:12.5px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
   @media (max-width:760px){ .vision-cols{grid-template-columns:1fr;} }
 
-  /* 5PRP table */
-  .fivep-scroll{overflow-x:auto; margin-top:16px;}
-  table.fivep{border-collapse:collapse; width:100%; min-width:820px;}
-  table.fivep th{font-size:11.5px; font-weight:700; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap;}
-  table.fivep td{border:1px solid var(--border); padding:8px; vertical-align:top; min-width:110px;}
-  table.fivep textarea{min-height:54px; font-size:12.5px;}
-  .fivep-entry{font-size:12px; margin-bottom:6px; display:flex; gap:6px; align-items:flex-start;}
-  .fivep-entry .owner-dot{margin-top:1px;}
+  /* 5PRP grid (fills remaining space, replaces the old table) */
+  .fivep-wrap{flex:1; min-height:0; display:flex; flex-direction:column; margin-top:16px;}
+  .fivep-grid{flex:1; min-height:0; display:grid; grid-template-columns:90px repeat(7, 1fr); grid-auto-rows:1fr; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:auto;}
+  .fivep-cell{background:var(--surface); padding:8px; min-height:90px; display:flex; flex-direction:column;}
+  .fivep-cell.head{background:var(--bg); align-items:center; justify-content:center; font-size:12.5px; font-weight:700; min-height:auto; padding:10px 6px; cursor:grab; touch-action:none; text-align:center;}
+  .fivep-cell.rowlabel{background:var(--bg); align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--muted); cursor:grab; touch-action:none;}
+  .fivep-cell.corner{background:var(--bg);}
+  .fivep-cell textarea{flex:1; width:100%; height:100%; min-height:60px; font-size:13px; border:none; background:transparent; resize:none;}
+  .fivep-cell textarea:focus{outline:1px solid var(--accent); border-radius:6px;}
+  .fivep-cell.dragging-col, .fivep-cell.dragging-row{opacity:0.4;}
+  .fivep-entry{font-size:11.5px; margin-top:4px; display:flex; gap:5px; align-items:flex-start;}
+  .fivep-entry .owner-dot{margin-top:1px; flex-shrink:0;}
+
+  /* Reading Plan v2 */
+  .qchip{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:12px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; color:var(--muted);}
+  .qchip.queued{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .qchip-remove{font-size:11px; color:var(--danger); cursor:pointer; margin-left:4px; font-weight:700;}
+  .current-card{background:var(--accent-bg); border:1px solid var(--accent); border-radius:12px; padding:16px 18px; margin-top:14px; cursor:pointer;}
+  .current-card .lbl{font-size:10.5px; font-weight:700; color:var(--accent); letter-spacing:0.05em;}
+  .drag-row{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-top:6px; touch-action:none;}
+  .drag-handle{cursor:grab; color:var(--muted); font-size:16px; user-select:none;}
+  .drag-row.dragging{opacity:0.5;}
+  .focused-reading{display:flex; gap:0; margin-top:14px; align-items:stretch;}
+  .focused-center{flex:1; min-width:200px; padding-right:16px;}
+  .focused-divider{width:6px; cursor:col-resize; background:var(--border); border-radius:3px; flex-shrink:0; margin:0 6px;}
+  .focused-log{width:300px; flex-shrink:0; border-left:1px solid var(--border); padding-left:16px; max-height:520px; overflow-y:auto;}
+  @media (max-width:760px){ .focused-reading{flex-direction:column;} .focused-divider{display:none;} .focused-log{width:100%; border-left:none; border-top:1px solid var(--border); padding-left:0; padding-top:12px; max-height:none;} }
 
   @media (max-width:860px){
     .app-shell{flex-direction:column;}
@@ -197,9 +221,9 @@
 
 <!-- APP -->
 <div id="app">
-<div class="app-shell">
+<div class="app-shell" id="app-shell">
   <nav class="sidebar">
-    <div class="brand"><span class="brand-dot"></span><span class="brand-name">Home Ops Centre</span></div>
+    <div class="brand"><span class="brand-dot"></span><span class="brand-name">Home Ops Centre</span><button class="collapse-btn" id="collapse-btn" title="Hide menu">⟨</button></div>
     <button class="navitem" data-nav="today">Today</button>
     <div class="navgroup-label">VISION &amp; GOALS</div>
     <button class="navitem" data-nav="vision">Vision</button>
@@ -282,10 +306,10 @@
     <section class="panel" id="panel-fivepoint">
       <div class="headrow">
         <div><div class="eyebrow">Vision &amp; Goals</div><h1 class="pagetitle" style="font-size:22px;">5-Point Reset Plan</h1></div>
-        <div class="view-toggle" id="fivep-view-toggle"><button data-view="mine" class="active">Mine</button><button data-view="all">All</button></div>
+        <div class="view-toggle" id="fivep-view-toggle"><button data-view="all" class="active">All</button><button data-view="mine">Mine</button></div>
       </div>
-      <p class="subtitle">Five reset points per pillar. Switch to "Mine" to write your own; "All" shows both of yours side by side.</p>
-      <div class="fivep-scroll"><table class="fivep" id="fivep-table"></table></div>
+      <p class="subtitle">Five reset points per pillar. Drag a pillar name or a point label to reorder. Switch to "Mine" to hide the other person's entries; "All" shows them read-only alongside yours, which stays editable either way.</p>
+      <div class="fivep-wrap"><div class="fivep-grid" id="fivep-table"></div></div>
     </section>
 
     <section class="panel" id="panel-actions">
@@ -313,11 +337,14 @@
           <div class="source-row" id="imp-source-row"></div>
           <input type="text" id="imp-link" placeholder="Optional: which book / chapter, or free-text tag">
           <textarea id="imp-text" placeholder="What stood out?"></textarea>
+          <input type="text" id="imp-labels" placeholder="Labels, comma separated — e.g. Psalm 51, grace">
           <div class="field"><label>Or attach a photo (caption below, since auto-summary isn't wired up yet)</label><input type="file" id="imp-photo" accept="image/*" capture="environment"></div>
           <div style="display:flex; gap:8px;">
             <button class="btn primary" data-action="submit-impression">Add impression</button>
           </div>
         </div>
+        <div class="section-label">Filter by label</div>
+        <div class="source-row" id="imp-label-filter"></div>
         <div style="margin-top:16px;" id="imp-list"></div>
       </div>
     </section>
@@ -340,6 +367,7 @@
   </main>
 </div>
 </div>
+<button class="show-sidebar-btn" id="show-sidebar-btn">☰ Menu</button>
 
 <!-- Vision edit overlay -->
 <div class="overlay" id="vision-overlay">
@@ -424,7 +452,7 @@ let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [], VISION
 let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [];
 let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let visionIndex = 0;
-let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', visionView: 'all', fivepView: 'mine' };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set() };
 
 async function boot(){
   const { data: { session } } = await supabase.auth.getSession();
@@ -496,6 +524,7 @@ function showPanel(name, pillarId){
   if(pillarId) state.pillar = pillarId;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
+  document.querySelector('.main').classList.toggle('wide', name === 'fivepoint');
   document.querySelectorAll('.navitem').forEach(n=>n.classList.remove('active'));
   const sel = pillarId ? `.navitem[data-pillar="${pillarId}"]` : `.navitem[data-nav="${name}"]`;
   const navEl = document.querySelector(sel);
@@ -583,29 +612,88 @@ function findProfileIdByName(name){
 }
 
 // ---------------- 5-POINT RESET PLAN ----------------
+function loadOrder(key, defaultArr){
+  try {
+    const raw = localStorage.getItem(key);
+    if(!raw) return [...defaultArr];
+    const saved = JSON.parse(raw);
+    // guard against stale saved orders that don't match current pillars/points
+    if(Array.isArray(saved) && saved.length === defaultArr.length && defaultArr.every(v=>saved.includes(v))) return saved;
+  } catch(e){}
+  return [...defaultArr];
+}
+let fivepColOrder = null, fivepRowOrder = null;
+function ensureFivepOrders(){
+  if(!fivepColOrder) fivepColOrder = loadOrder('hoc-fivep-cols', PILLARS.map(p=>p.id));
+  if(!fivepRowOrder) fivepRowOrder = loadOrder('hoc-fivep-rows', [1,2,3,4,5]);
+}
 function renderFivePoint(){
-  const table = document.getElementById('fivep-table');
-  let header = '<tr><th>Point</th>' + PILLARS.map(p=>`<th style="color:${p.color};">${p.name}</th>`).join('') + '</tr>';
-  let rows = '';
-  for(let pt=1; pt<=5; pt++){
-    rows += `<tr><th>${pt}</th>`;
-    PILLARS.forEach(p=>{
-      if(state.fivepView === 'mine'){
-        const entry = RESET_ENTRIES.find(e=>e.pillar_id===p.id && e.point_number===pt && e.owner_id===currentUserId);
-        rows += `<td><textarea data-pillar="${p.id}" data-point="${pt}">${entry?entry.content:''}</textarea></td>`;
-      } else {
-        const entries = RESET_ENTRIES.filter(e=>e.pillar_id===p.id && e.point_number===pt && e.content && e.content.trim());
-        rows += `<td>${entries.length ? entries.map(e=>`<div class="fivep-entry">${ownerDotHTML(e.owner_id)}<span>${e.content}</span></div>`).join('') : '<span style="color:var(--muted); font-size:12px;">—</span>'}</td>`;
+  ensureFivepOrders();
+  const grid = document.getElementById('fivep-table');
+  let html = `<div class="fivep-cell corner"></div>`;
+  fivepColOrder.forEach(pid=>{
+    const p = pillarOf(pid);
+    html += `<div class="fivep-cell head" data-colhead="${pid}" style="color:${p?p.color:'inherit'};">${p?p.name:pid}</div>`;
+  });
+  fivepRowOrder.forEach(pt=>{
+    html += `<div class="fivep-cell rowlabel" data-rowlabel="${pt}">${pt}</div>`;
+    fivepColOrder.forEach(pid=>{
+      const mine = RESET_ENTRIES.find(e=>e.pillar_id===pid && e.point_number===pt && e.owner_id===currentUserId);
+      let cellContent = `<textarea data-pillar="${pid}" data-point="${pt}">${mine?mine.content:''}</textarea>`;
+      if(state.fivepView === 'all'){
+        const others = RESET_ENTRIES.filter(e=>e.pillar_id===pid && e.point_number===pt && e.owner_id!==currentUserId && e.content && e.content.trim());
+        cellContent += others.map(e=>`<div class="fivep-entry">${ownerDotHTML(e.owner_id)}<span>${e.content}</span></div>`).join('');
       }
+      html += `<div class="fivep-cell">${cellContent}</div>`;
     });
-    rows += '</tr>';
-  }
-  table.innerHTML = header + rows;
-  if(state.fivepView === 'mine'){
-    table.querySelectorAll('textarea').forEach(t=>{
-      t.addEventListener('focusout', ()=> saveFivePoint(t.dataset.pillar, parseInt(t.dataset.point), t.value));
+  });
+  grid.style.gridTemplateColumns = `90px repeat(${fivepColOrder.length}, 1fr)`;
+  grid.innerHTML = html;
+  grid.querySelectorAll('textarea').forEach(t=>{
+    t.addEventListener('focusout', ()=> saveFivePoint(t.dataset.pillar, parseInt(t.dataset.point), t.value));
+  });
+  setupFivepColumnDrag(grid);
+  setupFivepRowDrag(grid);
+}
+function setupFivepColumnDrag(grid){
+  let dragId = null, hoverId = null;
+  grid.querySelectorAll('.fivep-cell.head').forEach(cell=>{
+    cell.addEventListener('pointerdown', (e)=>{ dragId = cell.dataset.colhead; hoverId = dragId; cell.classList.add('dragging-col'); cell.setPointerCapture(e.pointerId); });
+    cell.addEventListener('pointermove', (e)=>{
+      if(!dragId) return;
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.fivep-cell.head');
+      if(target) hoverId = target.dataset.colhead;
     });
-  }
+    cell.addEventListener('pointerup', ()=>{
+      if(dragId && hoverId && hoverId !== dragId){
+        const from = fivepColOrder.indexOf(dragId), to = fivepColOrder.indexOf(hoverId);
+        fivepColOrder.splice(from,1); fivepColOrder.splice(to,0,dragId);
+        try{ localStorage.setItem('hoc-fivep-cols', JSON.stringify(fivepColOrder)); }catch(e){}
+        renderFivePoint();
+      }
+      dragId = null; hoverId = null;
+    });
+  });
+}
+function setupFivepRowDrag(grid){
+  let dragPt = null, hoverPt = null;
+  grid.querySelectorAll('.fivep-cell.rowlabel').forEach(cell=>{
+    cell.addEventListener('pointerdown', (e)=>{ dragPt = parseInt(cell.dataset.rowlabel); hoverPt = dragPt; cell.classList.add('dragging-row'); cell.setPointerCapture(e.pointerId); });
+    cell.addEventListener('pointermove', (e)=>{
+      if(dragPt==null) return;
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.fivep-cell.rowlabel');
+      if(target) hoverPt = parseInt(target.dataset.rowlabel);
+    });
+    cell.addEventListener('pointerup', ()=>{
+      if(dragPt!=null && hoverPt!=null && hoverPt !== dragPt){
+        const from = fivepRowOrder.indexOf(dragPt), to = fivepRowOrder.indexOf(hoverPt);
+        fivepRowOrder.splice(from,1); fivepRowOrder.splice(to,0,dragPt);
+        try{ localStorage.setItem('hoc-fivep-rows', JSON.stringify(fivepRowOrder)); }catch(e){}
+        renderFivePoint();
+      }
+      dragPt = null; hoverPt = null;
+    });
+  });
 }
 async function saveFivePoint(pillarId, point, content){
   const { error } = await supabase.from('reset_plan_entries').upsert(
@@ -799,59 +887,99 @@ function renderReadingPanel(){
   }).join('');
   renderReadingBody();
 }
+function tabItems(){
+  if(state.rpTab === 'whitebooks') return { kind:'whitebook', list: WHITE_BOOKS, section: null };
+  return { kind:'project', list: PROJECTS.filter(p=>p.section===state.rpTab), section: state.rpTab };
+}
+function itemTitle(kind, item){ return kind==='whitebook' ? item.number : item.title; }
+function sortActive(kind, items){
+  const queued = items.filter(i=>i.queue_position!=null).sort((a,b)=>a.queue_position-b.queue_position);
+  const rest = items.filter(i=>i.queue_position==null).sort((a,b)=>{
+    if(kind==='whitebook') return (a.number||'').localeCompare(b.number||'');
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  return [...queued, ...rest];
+}
 function renderReadingBody(){
   const body = document.getElementById('rp-body');
   if(state.rpTab === 'bible'){
     body.innerHTML = `<p class="empty">Placeholder section — the Bible reading tracker arrives in a later phase.</p>`;
     return;
   }
-  if(state.rpTab === 'whitebooks'){
-    const active = WHITE_BOOKS.filter(b=>!b.completed);
-    const archive = WHITE_BOOKS.filter(b=>b.completed);
-    body.innerHTML = `
-      <div class="field" style="max-width:420px;"><label>Add a White Book</label>
-        <div style="display:flex; gap:6px;">
-          <input type="text" id="wb-number" placeholder="WB1036" style="max-width:110px;">
-          <input type="date" id="wb-received">
-          <input type="number" id="wb-pages" placeholder="Pages" style="max-width:90px;">
-          <button class="btn small primary" data-action="add-white-book">Add</button>
-        </div>
-      </div>
-      ${active.map(b=>`<div class="rp-item"><strong>${b.number}</strong> · ${b.pages||'?'} pages · received ${b.date_received||'—'}
-        <button class="btn small" style="margin-left:8px;" data-action="complete-white-book" data-id="${b.id}">Mark complete</button></div>`).join('') || '<p class="empty">No white books logged yet.</p>'}
-      <details class="archive"><summary>Archive (${archive.length})</summary>
-      ${archive.map(b=>`<div class="rp-item"><strong>${b.number}</strong> · ${b.pages||'?'} pages · completed ${b.completed_date||'—'}
-        <button class="btn small" data-action="unarchive-white-book" data-id="${b.id}">Undo</button></div>`).join('')}
-      </details>`;
+  if(state.rpFocus && state.rpFocus.tab === state.rpTab){
+    renderFocusedReading(body);
     return;
   }
-  const section = state.rpTab;
-  const projects = PROJECTS.filter(p=>p.section===section);
-  const active = projects.filter(p=>!p.completed);
-  const archive = projects.filter(p=>p.completed);
-  body.innerHTML = `
-    <div class="field" style="max-width:460px;"><label>Add a ${section === 'ministry' ? 'Ministry' : 'Other'} reading project</label>
+  const { kind, list, section } = tabItems();
+  const active = sortActive(kind, list.filter(i=>!i.completed));
+  const archive = list.filter(i=>i.completed);
+  const current = list.find(i=>i.is_current && !i.completed);
+
+  const addForm = kind==='whitebook' ?
+    `<div class="field" style="max-width:420px;"><label>Add a White Book</label>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="wb-number" placeholder="WB1036" style="max-width:110px;">
+        <input type="date" id="wb-received">
+        <input type="number" id="wb-pages" placeholder="Pages" style="max-width:90px;">
+        <button class="btn small primary" data-action="add-white-book">Add</button>
+      </div>
+    </div>` :
+    `<div class="field" style="max-width:460px;"><label>Add a ${section === 'ministry' ? 'Ministry' : 'Other'} reading project</label>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <input type="text" id="pr-title" placeholder="Title" style="flex:1; min-width:140px;">
         <input type="number" id="pr-chapters" placeholder="Chapters" style="max-width:90px;">
-        <input type="number" id="pr-pages" placeholder="Pages/ch" style="max-width:90px;">
+        <input type="number" id="pr-pages" placeholder="Pages/ch (est.)" style="max-width:110px;">
         <input type="date" id="pr-start">
         <button class="btn small primary" data-action="add-project" data-section="${section}">Add</button>
       </div>
-    </div>
-    ${active.map(p=>projectHTML(p)).join('') || '<p class="empty">No projects yet.</p>'}
+    </div>`;
+
+  const currentCard = current ? `<div class="current-card" data-action="open-focused" data-kind="${kind}" data-id="${current.id}">
+    <div class="lbl">CURRENTLY READING</div><strong>${itemTitle(kind,current)}</strong> — click to open</div>` : '';
+
+  if(state.rpEditOrder){
+    const queued = active.filter(i=>i.queue_position!=null);
+    body.innerHTML = `${currentCard}<div class="headrow" style="margin-top:14px;"><h3 style="font-size:13px;">Edit queue order</h3><button class="btn small" data-action="toggle-edit-order">Done</button></div>
+      <div id="edit-order-list">${queued.map(i=>`<div class="drag-row" data-id="${i.id}"><span class="drag-handle">⠿</span><span>${itemTitle(kind,i)}</span></div>`).join('') || '<p class="empty">Nothing queued yet — add items to the queue first, then reorder here.</p>'}</div>`;
+    setupDragReorder(document.getElementById('edit-order-list'), kind);
+    return;
+  }
+
+  body.innerHTML = `${currentCard}${addForm}
+    <div class="headrow" style="margin-top:10px;"><span></span><button class="btn small" data-action="toggle-edit-order">Edit Order</button></div>
+    ${active.map(i=>itemRowHTML(kind, i, section)).join('') || '<p class="empty">Nothing here yet.</p>'}
     <details class="archive"><summary>Archive (${archive.length})</summary>
-    ${archive.map(p=>`<div class="rp-item"><strong>${p.title}</strong> · completed ${p.completed_date||'—'}</div>`).join('')}
+    ${archive.map(i=> kind==='whitebook'
+      ? `<div class="rp-item"><strong>${i.number}</strong> · ${i.pages||'?'} pages · completed ${i.completed_date||'—'} <button class="btn small" data-action="unarchive-white-book" data-id="${i.id}">Undo</button></div>`
+      : `<div class="rp-item"><strong>${i.title}</strong> · completed ${i.completed_date||'—'}</div>`
+    ).join('')}
     </details>`;
+  body.querySelectorAll('input[data-action-blur="save-chapter-pages"]').forEach(inp=>{
+    inp.addEventListener('focusout', ()=> saveChapterPages(inp.dataset.id, inp.value));
+  });
 }
-function projectHTML(p){
-  const chapters = CHAPTERS.filter(c=>c.project_id===p.id).sort((a,b)=>a.chapter_number-b.chapter_number);
+function itemRowHTML(kind, item, section){
+  const qNum = item.queue_position;
+  const qChip = qNum!=null
+    ? `<span class="qchip queued" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q·${qNum}</span><span class="qchip-remove" data-action="remove-queue" data-kind="${kind}" data-id="${item.id}">✕</span>`
+    : `<span class="qchip" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q</span>`;
+  const currentBtn = item.is_current ? '<span class="tag habit">CURRENT</span>' : `<button class="btn small" data-action="set-current" data-kind="${kind}" data-id="${item.id}" data-section="${section||''}">Set current</button>`;
+  if(kind === 'whitebook'){
+    return `<div class="rp-item"><div class="headrow"><div><strong>${item.number}</strong> · ${item.pages||'?'} pages · received ${item.date_received||'—'}</div><div style="display:flex; gap:8px; align-items:center;">${qChip}</div></div>
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">${currentBtn}<button class="btn small" data-action="complete-white-book" data-id="${item.id}">Mark complete</button></div></div>`;
+  }
+  const chapters = CHAPTERS.filter(c=>c.project_id===item.id).sort((a,b)=>a.chapter_number-b.chapter_number);
   const done = chapters.filter(c=>c.done).length;
-  return `<div class="rp-item"><strong>${p.title}</strong><div class="habit-sub">${p.total_chapters} chapters · ${p.pages_per_chapter||'?'} pages each · started ${p.start_date||'—'}</div>
-    <div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
-    <div class="barTrack"><div class="barFill" style="width:${Math.round(done/p.total_chapters*100)}%; background:var(--accent);"></div></div>
-    <button class="btn small primary" style="margin-top:8px;" data-action="complete-project" data-id="${p.id}">Mark project complete</button></div>`;
+  const pagesOpen = state.rpPagesOpen.has(item.id);
+  return `<div class="rp-item"><div class="headrow"><strong>${item.title}</strong>${qChip}</div>
+    <div class="habit-sub">${item.total_chapters} chapters · ~${item.pages_per_chapter||'?'} pages each · started ${item.start_date||'—'}</div>
+    <div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" title="${c.pages?c.pages+' pages':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
+    <button class="btn small" style="margin-top:6px;" data-action="toggle-chapter-pages" data-id="${item.id}">${pagesOpen?'Hide':'Set'} page counts (optional)</button>
+    ${pagesOpen ? `<div class="chapter-grid" style="margin-top:6px;">${chapters.map(c=>`<input type="number" data-action-blur="save-chapter-pages" data-id="${c.id}" value="${c.pages||''}" placeholder="pp" style="width:44px; padding:4px; font-size:10.5px;">`).join('')}</div>` : ''}
+    <div class="barTrack"><div class="barFill" style="width:${Math.round(done/item.total_chapters*100)}%; background:var(--accent);"></div></div>
+    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">${currentBtn}<button class="btn small primary" data-action="complete-project" data-id="${item.id}">Mark project complete</button></div></div>`;
 }
+
 async function addWhiteBook(){
   const number = document.getElementById('wb-number').value.trim();
   if(!number){ showToast('A number is required.'); return; }
@@ -861,7 +989,7 @@ async function addWhiteBook(){
   await loadAll(); renderReadingPanel();
 }
 async function completeWhiteBook(id){
-  await supabase.from('reading_white_books').update({ completed: true, completed_date: todayStr() }).eq('id', id);
+  await supabase.from('reading_white_books').update({ completed: true, completed_date: todayStr(), is_current: false }).eq('id', id);
   await loadAll(); renderReadingPanel();
 }
 async function unarchiveWhiteBook(id){
@@ -888,8 +1016,162 @@ async function toggleChapter(id){
   renderReadingBody();
 }
 async function completeProject(id){
-  await supabase.from('reading_projects').update({ completed: true, completed_date: todayStr() }).eq('id', id);
+  await supabase.from('reading_projects').update({ completed: true, completed_date: todayStr(), is_current: false }).eq('id', id);
   await loadAll(); renderReadingPanel();
+}
+
+// ---- Queue logic ----
+function tableFor(kind){ return kind==='whitebook' ? 'reading_white_books' : 'reading_projects'; }
+function listFor(kind, section){ return kind==='whitebook' ? WHITE_BOOKS : PROJECTS.filter(p=>p.section===section); }
+async function cycleQueue(kind, id){
+  const { list, section } = tabItems();
+  const item = list.find(i=>i.id===id);
+  const queued = list.filter(i=>i.queue_position!=null).sort((a,b)=>a.queue_position-b.queue_position);
+  const table = tableFor(kind);
+  if(item.queue_position == null){
+    const nextPos = queued.length ? Math.max(...queued.map(i=>i.queue_position))+1 : 1;
+    await supabase.from(table).update({ queue_position: nextPos }).eq('id', id);
+  } else if(item.queue_position > 1){
+    const above = queued.find(i=>i.queue_position === item.queue_position-1);
+    await supabase.from(table).update({ queue_position: item.queue_position-1 }).eq('id', id);
+    if(above) await supabase.from(table).update({ queue_position: item.queue_position }).eq('id', above.id);
+  }
+  await loadAll(); renderReadingBody();
+}
+async function removeFromQueue(kind, id){
+  const { list } = tabItems();
+  const item = list.find(i=>i.id===id);
+  const removedPos = item.queue_position;
+  const table = tableFor(kind);
+  await supabase.from(table).update({ queue_position: null }).eq('id', id);
+  const toShift = list.filter(i=>i.queue_position!=null && i.queue_position > removedPos);
+  for(const i of toShift){ await supabase.from(table).update({ queue_position: i.queue_position-1 }).eq('id', i.id); }
+  await loadAll(); renderReadingBody();
+}
+async function setCurrent(kind, id, section){
+  const table = tableFor(kind);
+  const others = listFor(kind, section).filter(i=>i.is_current && i.id!==id);
+  for(const o of others){ await supabase.from(table).update({ is_current:false }).eq('id', o.id); }
+  await supabase.from(table).update({ is_current: true }).eq('id', id);
+  await loadAll(); renderReadingBody();
+}
+function toggleEditOrder(){ state.rpEditOrder = !state.rpEditOrder; renderReadingBody(); }
+function toggleChapterPages(id){
+  if(state.rpPagesOpen.has(id)) state.rpPagesOpen.delete(id); else state.rpPagesOpen.add(id);
+  renderReadingBody();
+}
+async function saveChapterPages(chapterId, value){
+  const pages = parseInt(value) || null;
+  await supabase.from('reading_project_chapters').update({ pages }).eq('id', chapterId);
+  const c = CHAPTERS.find(x=>x.id===chapterId); if(c) c.pages = pages;
+}
+
+// ---- Drag reorder (pointer events, touch-friendly) ----
+function setupDragReorder(container, kind){
+  if(!container) return;
+  let dragEl = null, startY = 0;
+  container.querySelectorAll('.drag-row').forEach(row=>{
+    const handle = row.querySelector('.drag-handle');
+    handle.addEventListener('pointerdown', (e)=>{
+      dragEl = row; row.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', (e)=>{
+      if(!dragEl) return;
+      const rows = [...container.querySelectorAll('.drag-row')];
+      const y = e.clientY;
+      for(const r of rows){
+        if(r === dragEl) continue;
+        const rect = r.getBoundingClientRect();
+        if(y > rect.top && y < rect.bottom){
+          if(y < rect.top + rect.height/2) container.insertBefore(dragEl, r);
+          else container.insertBefore(dragEl, r.nextSibling);
+          break;
+        }
+      }
+    });
+    handle.addEventListener('pointerup', async ()=>{
+      if(!dragEl) return;
+      dragEl.classList.remove('dragging'); dragEl = null;
+      const table = tableFor(kind);
+      const rows = [...container.querySelectorAll('.drag-row')];
+      for(let i=0;i<rows.length;i++){ await supabase.from(table).update({ queue_position: i+1 }).eq('id', rows[i].dataset.id); }
+      await loadAll();
+      if(state.rpEditOrder) renderReadingBody();
+    });
+  });
+}
+
+// ---- Focused Current Reading view ----
+function openFocused(kind, id){ state.rpFocus = { tab: state.rpTab, kind, id }; renderReadingBody(); }
+function closeFocused(){ state.rpFocus = null; renderReadingBody(); }
+function renderFocusedReading(body){
+  const { kind } = state.rpFocus;
+  const item = kind==='whitebook' ? WHITE_BOOKS.find(w=>w.id===state.rpFocus.id) : PROJECTS.find(p=>p.id===state.rpFocus.id);
+  if(!item){ closeFocused(); return; }
+  const linkedImpressions = IMPRESSIONS.filter(e=> kind==='whitebook' ? e.linked_white_book_id===item.id : e.linked_project_id===item.id)
+    .sort((a,b)=> new Date(b.reading_date||b.created_at) - new Date(a.reading_date||a.created_at));
+  let chaptersHTML = '';
+  if(kind==='project'){
+    const chapters = CHAPTERS.filter(c=>c.project_id===item.id).sort((a,b)=>a.chapter_number-b.chapter_number);
+    const done = chapters.filter(c=>c.done).length;
+    chaptersHTML = `<div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
+      <div class="barTrack"><div class="barFill" style="width:${Math.round(done/item.total_chapters*100)}%; background:var(--accent);"></div></div>`;
+  }
+  body.innerHTML = `
+    <button class="btn small" data-action="close-focused">← Back to list</button>
+    <div class="focused-reading" id="focused-reading-wrap">
+      <div class="focused-center" id="focused-center">
+        <h2 class="pagetitle" style="font-size:20px;">${itemTitle(kind,item)}</h2>
+        <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages · received '+(item.date_received||'—') : item.total_chapters+' chapters · started '+(item.start_date||'—')}</p>
+        ${chaptersHTML}
+        <div class="card" id="add-imp-from-reading" style="margin-top:16px;">
+          <div class="field"><label>Page number (optional)</label><input type="number" id="ri-page" style="max-width:100px;"></div>
+          <div class="field"><label>Date read</label><input type="date" id="ri-date" value="${todayStr()}"></div>
+          <div class="field"><label>What stood out?</label><textarea id="ri-text"></textarea></div>
+          <div class="field"><label>Labels (comma separated)</label><input type="text" id="ri-labels" placeholder="Psalm 51, grace"></div>
+          <button class="btn primary" data-action="submit-reading-impression">Add impression</button>
+        </div>
+      </div>
+      <div class="focused-divider" id="focused-divider"></div>
+      <div class="focused-log">
+        <h3 style="font-size:13px; font-weight:700; margin-bottom:8px;">Impressions from this book</h3>
+        ${linkedImpressions.length ? linkedImpressions.map(e=>`<div class="imp-entry"><div class="imp-meta">${e.page_number?`<span>p.${e.page_number}</span>`:''}<span>· ${new Date(e.reading_date||e.created_at).toLocaleDateString()}</span></div><div>${e.content}</div>${(e.labels||[]).length?`<div style="margin-top:4px;">${(e.labels||[]).map(l=>`<span class="tag pillar">${l}</span>`).join(' ')}</div>`:''}</div>`).join('') : '<p class="empty">No impressions logged against this book yet.</p>'}
+      </div>
+    </div>`;
+  setupResizableDivider();
+}
+async function submitReadingImpression(){
+  const { kind, id } = state.rpFocus;
+  const item = kind==='whitebook' ? WHITE_BOOKS.find(w=>w.id===id) : PROJECTS.find(p=>p.id===id);
+  const content = document.getElementById('ri-text').value.trim();
+  const page = parseInt(document.getElementById('ri-page').value) || null;
+  const date = document.getElementById('ri-date').value || todayStr();
+  const labels = parseLabels(document.getElementById('ri-labels').value);
+  if(!content){ showToast('Add some text first.'); return; }
+  await submitImpression({
+    source: 'Reading', content, page_number: page, reading_date: date, labels,
+    link: itemTitle(kind, item),
+    linked_white_book_id: kind==='whitebook' ? id : null,
+    linked_project_id: kind==='project' ? id : null,
+  });
+  document.getElementById('ri-text').value=''; document.getElementById('ri-page').value=''; document.getElementById('ri-labels').value='';
+  renderFocusedReading(document.getElementById('rp-body'));
+}
+function setupResizableDivider(){
+  const divider = document.getElementById('focused-divider');
+  const center = document.getElementById('focused-center');
+  if(!divider || !center) return;
+  let dragging = false;
+  divider.addEventListener('pointerdown', (e)=>{ dragging = true; divider.setPointerCapture(e.pointerId); });
+  divider.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    const wrap = document.getElementById('focused-reading-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const pct = Math.max(30, Math.min(75, ((e.clientX - rect.left) / rect.width) * 100));
+    center.style.flex = 'none'; center.style.width = pct + '%';
+  });
+  divider.addEventListener('pointerup', ()=>{ dragging = false; });
 }
 
 // ---------------- IMPRESSIONS ----------------
@@ -897,24 +1179,38 @@ function renderImpressionsPanel(){
   document.getElementById('imp-source-row').innerHTML = ['Reading','Bible','Meeting','Recordings','Other'].map(s=>
     `<button class="source-btn ${state.impSource===s?'selected':''}" data-action="set-imp-source" data-source="${s}">${s}</button>`
   ).join('');
+  const allLabels = [...new Set(IMPRESSIONS.flatMap(e=>e.labels||[]))].sort();
+  document.getElementById('imp-label-filter').innerHTML = allLabels.length ? allLabels.map(l=>
+    `<button class="source-btn ${state.impLabelFilter===l?'selected':''}" data-action="filter-imp-label" data-label="${l}">${l}</button>`
+  ).join('') + (state.impLabelFilter ? `<button class="btn small" data-action="filter-imp-label" data-label="">Clear</button>` : '')
+    : '<span style="font-size:12px; color:var(--muted);">No labels used yet.</span>';
   renderImpressionsList();
 }
 async function renderImpressionsList(){
   const list = document.getElementById('imp-list');
-  list.innerHTML = IMPRESSIONS.length ? await Promise.all(IMPRESSIONS.map(async e=>{
-    let photoTag = '';
-    if(e.photo_url){
-      const { data } = await supabase.storage.from('impression-photos').createSignedUrl(e.photo_url, 3600);
-      if(data?.signedUrl) photoTag = `<img class="photo-thumb" src="${data.signedUrl}">`;
-    }
-    return `<div class="imp-entry"><div class="imp-meta"><span class="tag habit" style="background:var(--accent-bg); color:var(--accent);">${e.source}</span>${e.link?`<span>${e.link}</span>`:''}<span>· ${new Date(e.created_at).toLocaleDateString()}</span></div><div>${e.content}</div>${photoTag}</div>`;
-  })).then(arr=>arr.join('')) : '<p class="empty">No impressions logged yet.</p>';
+  const filtered = state.impLabelFilter ? IMPRESSIONS.filter(e=>(e.labels||[]).includes(state.impLabelFilter)) : IMPRESSIONS;
+  list.innerHTML = filtered.length ? (await Promise.all(filtered.map(e=>impressionEntryHTML(e)))).join('') : '<p class="empty">No impressions to show.</p>';
 }
-async function submitImpression(){
-  const text = document.getElementById('imp-text').value.trim();
-  const link = document.getElementById('imp-link').value.trim();
+async function impressionEntryHTML(e){
+  let photoTag = '';
+  if(e.photo_url){
+    const { data } = await supabase.storage.from('impression-photos').createSignedUrl(e.photo_url, 3600);
+    if(data?.signedUrl) photoTag = `<img class="photo-thumb" src="${data.signedUrl}">`;
+  }
+  const labelChips = (e.labels||[]).map(l=>`<span class="tag pillar">${l}</span>`).join(' ');
+  const pageTag = e.page_number ? `<span>· p.${e.page_number}</span>` : '';
+  const dateShown = e.reading_date || e.created_at;
+  return `<div class="imp-entry"><div class="imp-meta"><span class="tag habit" style="background:var(--accent-bg); color:var(--accent);">${e.source}</span>${e.link?`<span>${e.link}</span>`:''}${pageTag}<span>· ${new Date(dateShown).toLocaleDateString()}</span></div><div>${e.content}</div>${labelChips?`<div style="margin-top:6px;">${labelChips}</div>`:''}${photoTag}</div>`;
+}
+function parseLabels(raw){
+  return raw.split(',').map(s=>s.trim()).filter(Boolean);
+}
+async function submitImpression(prefill){
+  const text = (prefill?.content ?? document.getElementById('imp-text').value).trim();
+  const link = prefill?.link ?? document.getElementById('imp-link').value.trim();
+  const labels = prefill?.labels ?? parseLabels(document.getElementById('imp-labels')?.value || '');
   const fileEl = document.getElementById('imp-photo');
-  const file = fileEl.files[0];
+  const file = fileEl && !prefill ? fileEl.files[0] : null;
   if(!text && !file){ showToast('Add some text or a photo first.'); return; }
   let photoUrl = null;
   if(file){
@@ -924,10 +1220,27 @@ async function submitImpression(){
     photoUrl = path;
   }
   const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase.from('impressions').insert({ source: state.impSource, link: link||null, content: text || '(photo, no caption)', photo_url: photoUrl, created_by: user?.id });
+  const row = {
+    source: prefill?.source ?? state.impSource,
+    link: link || null,
+    content: text || '(photo, no caption)',
+    photo_url: photoUrl,
+    labels,
+    page_number: prefill?.page_number ?? null,
+    reading_date: prefill?.reading_date ?? null,
+    linked_white_book_id: prefill?.linked_white_book_id ?? null,
+    linked_project_id: prefill?.linked_project_id ?? null,
+    created_by: user?.id,
+  };
+  const { error } = await supabase.from('impressions').insert(row);
   if(error){ showToast('Could not save: '+error.message); return; }
-  document.getElementById('imp-text').value=''; document.getElementById('imp-link').value=''; fileEl.value='';
-  await loadAll(); renderImpressionsPanel();
+  if(!prefill){
+    document.getElementById('imp-text').value=''; document.getElementById('imp-link').value='';
+    if(document.getElementById('imp-labels')) document.getElementById('imp-labels').value='';
+    if(fileEl) fileEl.value='';
+  }
+  await loadAll();
+  if(state.panel === 'impressions') renderImpressionsPanel();
   showToast('Impression added.');
 }
 
@@ -1093,14 +1406,23 @@ document.addEventListener('click', (e)=>{
   else if(action === 'close-add-overlay') document.getElementById('add-overlay').classList.remove('open');
   else if(action === 'save-add') saveAdd();
   else if(action === 'nav-simple') showPanel(el.dataset.target);
-  else if(action === 'set-rp-tab'){ state.rpTab = el.dataset.key; renderReadingPanel(); }
+  else if(action === 'set-rp-tab'){ state.rpTab = el.dataset.key; state.rpEditOrder = false; state.rpFocus = null; renderReadingPanel(); }
   else if(action === 'add-white-book') addWhiteBook();
   else if(action === 'complete-white-book') completeWhiteBook(el.dataset.id);
   else if(action === 'unarchive-white-book') unarchiveWhiteBook(el.dataset.id);
   else if(action === 'add-project') addProject(el.dataset.section);
   else if(action === 'toggle-chapter') toggleChapter(el.dataset.id);
   else if(action === 'complete-project') completeProject(el.dataset.id);
+  else if(action === 'toggle-edit-order') toggleEditOrder();
+  else if(action === 'cycle-queue') cycleQueue(el.dataset.kind, el.dataset.id);
+  else if(action === 'remove-queue') removeFromQueue(el.dataset.kind, el.dataset.id);
+  else if(action === 'set-current') setCurrent(el.dataset.kind, el.dataset.id, el.dataset.section||null);
+  else if(action === 'open-focused') openFocused(el.dataset.kind, el.dataset.id);
+  else if(action === 'close-focused') closeFocused();
+  else if(action === 'submit-reading-impression') submitReadingImpression();
+  else if(action === 'toggle-chapter-pages') toggleChapterPages(el.dataset.id);
   else if(action === 'set-imp-source'){ state.impSource = el.dataset.source; renderImpressionsPanel(); }
+  else if(action === 'filter-imp-label'){ state.impLabelFilter = el.dataset.label || null; renderImpressionsPanel(); }
   else if(action === 'submit-impression') submitImpression();
 });
 document.querySelectorAll('.navitem[data-nav]').forEach(el=>{
@@ -1125,6 +1447,21 @@ document.querySelectorAll('.view-toggle').forEach(group=>{
     });
   });
 });
+
+// Sidebar collapse (manual, independent of the small-screen breakpoint)
+(function(){
+  const shell = document.getElementById('app-shell');
+  let collapsed = false;
+  try { collapsed = localStorage.getItem('hoc-sidebar-collapsed') === '1'; } catch(e){}
+  if(collapsed) shell.classList.add('collapsed');
+  function setCollapsed(v){
+    collapsed = v;
+    shell.classList.toggle('collapsed', v);
+    try { localStorage.setItem('hoc-sidebar-collapsed', v ? '1' : '0'); } catch(e){}
+  }
+  document.getElementById('collapse-btn').addEventListener('click', ()=> setCollapsed(true));
+  document.getElementById('show-sidebar-btn').addEventListener('click', ()=> setCollapsed(false));
+})();
 
 boot();
 </script>
