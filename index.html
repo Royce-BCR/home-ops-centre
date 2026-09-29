@@ -40,7 +40,7 @@
 
   /* ---- App shell ---- */
   #app{display:none;}
-  .app-shell{display:flex; min-height:100vh;}
+  .app-shell{display:flex; height:100vh;}
   .sidebar{width:230px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--border);
     display:flex; flex-direction:column; padding:20px 14px; gap:4px; position:sticky; top:0; height:100vh; overflow-y:auto;}
   .brand{display:flex; align-items:center; gap:8px; padding:4px 8px 14px;}
@@ -57,9 +57,9 @@
   .app-shell.collapsed .sidebar{width:0; padding:0; border:none; overflow:hidden;}
   .collapse-btn{background:none; border:1px solid var(--border); border-radius:6px; width:26px; height:26px; cursor:pointer; color:var(--muted); font-size:13px; margin-left:auto;}
   .show-sidebar-btn{display:none; position:fixed; top:16px; left:16px; z-index:40; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12.5px; font-weight:700; cursor:pointer;}
-  .app-shell.collapsed ~ .show-sidebar-btn{display:block;}
+  .show-sidebar-btn.visible{display:block;}
 
-  .main{flex:1; padding:32px 40px 60px; max-width:900px; display:flex; flex-direction:column; min-width:0;}
+  .main{flex:1; padding:32px 40px 60px; max-width:900px; display:flex; flex-direction:column; min-width:0; overflow-y:auto;}
   .main.wide{max-width:none;}
   .panel{display:none;}
   .panel.active{display:flex; flex-direction:column; flex:1; min-height:0;}
@@ -175,6 +175,20 @@
   .fivep-entry{font-size:11.5px; margin-top:4px; display:flex; gap:5px; align-items:flex-start;}
   .fivep-entry .owner-dot{margin-top:1px; flex-shrink:0;}
 
+  /* Reading Plan two-column layout */
+  .reading-layout{display:flex; gap:24px; flex:1; min-height:0; margin-top:12px;}
+  .reading-left{flex:1; min-width:0; overflow-y:auto; padding-right:4px;}
+  .reading-right{width:300px; flex-shrink:0; overflow-y:auto; border-left:1px solid var(--border); padding-left:20px;}
+  .rlist-tile{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 13px; margin-bottom:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .rlist-tile:hover{border-color:var(--accent);}
+  .rlist-tile .t{font-size:13px; font-weight:600;}
+  .rlist-tile .s{font-size:11px; color:var(--muted); margin-top:2px;}
+  .rlist-empty{border:1.5px dashed var(--border); border-radius:10px; padding:18px; margin-bottom:8px; color:var(--muted); font-size:12px; text-align:center; background:var(--bg);}
+  .star-btn{background:none; border:none; cursor:pointer; font-size:17px; color:var(--border); line-height:1; flex-shrink:0;}
+  .star-btn.active{color:#D9A441;}
+  .progress-row{display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; border-bottom:1px solid var(--border);}
+  .progress-row:last-child{border-bottom:none;}
+
   /* Reading Plan v2 */
   .qchip{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:12px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; color:var(--muted);}
   .qchip.queued{background:var(--accent); border-color:var(--accent); color:#fff;}
@@ -188,7 +202,10 @@
   .focused-center{flex:1; min-width:200px; padding-right:16px;}
   .focused-divider{width:6px; cursor:col-resize; background:var(--border); border-radius:3px; flex-shrink:0; margin:0 6px;}
   .focused-log{width:300px; flex-shrink:0; border-left:1px solid var(--border); padding-left:16px; max-height:520px; overflow-y:auto;}
-  @media (max-width:760px){ .focused-reading{flex-direction:column;} .focused-divider{display:none;} .focused-log{width:100%; border-left:none; border-top:1px solid var(--border); padding-left:0; padding-top:12px; max-height:none;} }
+  @media (max-width:760px){ .focused-reading{flex-direction:column;} .focused-divider{display:none;} .focused-log{width:100%; border-left:none; border-top:1px solid var(--border); padding-left:0; padding-top:12px; max-height:none;}
+    .reading-layout{flex-direction:column;} .reading-right{width:100%; border-left:none; border-top:1px solid var(--border); padding-left:0; padding-top:16px;} }
+  #panel-reading.active > .card{flex:1; display:flex; flex-direction:column; min-height:0;}
+  #rp-body{flex:1; display:flex; flex-direction:column; min-height:0;}
 
   @media (max-width:860px){
     .app-shell{flex-direction:column;}
@@ -449,7 +466,7 @@ document.getElementById('signout-btn').addEventListener('click', async ()=>{
 
 // ---------------- STATE ----------------
 let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [], VISIONS = [];
-let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [];
+let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [], PROGRESS = [];
 let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let visionIndex = 0;
 let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set() };
@@ -467,7 +484,7 @@ async function boot(){
 async function loadAll(){
   const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions },
          { data: whiteBooks }, { data: projects }, { data: chapters }, { data: impressions },
-         { data: profs }, { data: resetEntries }] = await Promise.all([
+         { data: profs }, { data: resetEntries }, { data: progress }] = await Promise.all([
     supabase.from('pillars').select('*').order('sort_order'),
     supabase.from('goals').select('*').order('created_at'),
     supabase.from('habits').select('*').order('created_at'),
@@ -480,10 +497,11 @@ async function loadAll(){
     supabase.from('impressions').select('*').order('created_at', { ascending: false }),
     supabase.from('profiles').select('*'),
     supabase.from('reset_plan_entries').select('*'),
+    supabase.from('reading_progress').select('*'),
   ]);
   PILLARS = pillars || []; GOALS = goals || []; HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS = actions || []; VISIONS = visions || [];
   WHITE_BOOKS = whiteBooks || []; PROJECTS = projects || []; CHAPTERS = chapters || []; IMPRESSIONS = impressions || [];
-  PROFILES = profs || []; RESET_ENTRIES = resetEntries || [];
+  PROFILES = profs || []; RESET_ENTRIES = resetEntries || []; PROGRESS = progress || [];
   visionIndex = VISIONS.length - 1;
   renderSidebarPillars();
 }
@@ -524,7 +542,7 @@ function showPanel(name, pillarId){
   if(pillarId) state.pillar = pillarId;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
-  document.querySelector('.main').classList.toggle('wide', name === 'fivepoint');
+  document.querySelector('.main').classList.toggle('wide', name === 'fivepoint' || name === 'reading');
   document.querySelectorAll('.navitem').forEach(n=>n.classList.remove('active'));
   const sel = pillarId ? `.navitem[data-pillar="${pillarId}"]` : `.navitem[data-nav="${name}"]`;
   const navEl = document.querySelector(sel);
@@ -935,49 +953,48 @@ function renderReadingBody(){
     </div>`;
 
   const currentCard = current ? `<div class="current-card" data-action="open-focused" data-kind="${kind}" data-id="${current.id}">
-    <div class="lbl">CURRENTLY READING</div><strong>${itemTitle(kind,current)}</strong> — click to open</div>` : '';
+    <div class="lbl">CURRENTLY READING</div><strong>${itemTitle(kind,current)}</strong> — click to open</div>`
+    : `<div class="rlist-empty" style="margin-top:14px;">No current book set — tap the ☆ on something in the list to make it your current read.</div>`;
 
+  let rightHTML;
   if(state.rpEditOrder){
     const queued = active.filter(i=>i.queue_position!=null);
-    body.innerHTML = `${currentCard}<div class="headrow" style="margin-top:14px;"><h3 style="font-size:13px;">Edit queue order</h3><button class="btn small" data-action="toggle-edit-order">Done</button></div>
-      <div id="edit-order-list">${queued.map(i=>`<div class="drag-row" data-id="${i.id}"><span class="drag-handle">⠿</span><span>${itemTitle(kind,i)}</span></div>`).join('') || '<p class="empty">Nothing queued yet — add items to the queue first, then reorder here.</p>'}</div>`;
-    setupDragReorder(document.getElementById('edit-order-list'), kind);
-    return;
+    rightHTML = `<div class="headrow"><h3 style="font-size:13px;">Edit order</h3><button class="btn small" data-action="toggle-edit-order">Done</button></div>
+      <div id="edit-order-list">${queued.map(i=>`<div class="drag-row" data-id="${i.id}"><span class="drag-handle">⠿</span><span>${itemTitle(kind,i)}</span></div>`).join('') || '<p class="empty">Nothing queued yet — add items to the queue first with the Q button, then reorder here.</p>'}</div>`;
+  } else {
+    rightHTML = `<div class="headrow"><h3 style="font-size:13px;">Reading list</h3><button class="btn small" data-action="toggle-edit-order">Edit Order</button></div>
+      ${active.length ? active.map(i=>rlistTileHTML(kind,i,section)).join('') : Array(3).fill('<div class="rlist-empty">Nothing added yet</div>').join('')}
+      <details class="archive"><summary>Archive (${archive.length})</summary>
+      ${archive.map(i=> kind==='whitebook'
+        ? `<div class="rp-item"><strong>${i.number}</strong> · ${i.pages||'?'} pages · completed ${i.completed_date||'—'} <button class="btn small" data-action="unarchive-white-book" data-id="${i.id}">Undo</button></div>`
+        : `<div class="rp-item"><strong>${i.title}</strong> · completed ${i.completed_date||'—'}</div>`
+      ).join('')}
+      </details>`;
   }
 
-  body.innerHTML = `${currentCard}${addForm}
-    <div class="headrow" style="margin-top:10px;"><span></span><button class="btn small" data-action="toggle-edit-order">Edit Order</button></div>
-    ${active.map(i=>itemRowHTML(kind, i, section)).join('') || '<p class="empty">Nothing here yet.</p>'}
-    <details class="archive"><summary>Archive (${archive.length})</summary>
-    ${archive.map(i=> kind==='whitebook'
-      ? `<div class="rp-item"><strong>${i.number}</strong> · ${i.pages||'?'} pages · completed ${i.completed_date||'—'} <button class="btn small" data-action="unarchive-white-book" data-id="${i.id}">Undo</button></div>`
-      : `<div class="rp-item"><strong>${i.title}</strong> · completed ${i.completed_date||'—'}</div>`
-    ).join('')}
-    </details>`;
-  body.querySelectorAll('input[data-action-blur="save-chapter-pages"]').forEach(inp=>{
-    inp.addEventListener('focusout', ()=> saveChapterPages(inp.dataset.id, inp.value));
-  });
+  body.innerHTML = `<div class="reading-layout">
+    <div class="reading-left">${addForm}${currentCard}</div>
+    <div class="reading-right" id="reading-right">${rightHTML}</div>
+  </div>`;
+  if(state.rpEditOrder) setupDragReorder(document.getElementById('edit-order-list'), kind);
 }
-function itemRowHTML(kind, item, section){
+function rlistTileHTML(kind, item, section){
   const qNum = item.queue_position;
   const qChip = qNum!=null
     ? `<span class="qchip queued" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q·${qNum}</span><span class="qchip-remove" data-action="remove-queue" data-kind="${kind}" data-id="${item.id}">✕</span>`
     : `<span class="qchip" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q</span>`;
-  const currentBtn = item.is_current ? '<span class="tag habit">CURRENT</span>' : `<button class="btn small" data-action="set-current" data-kind="${kind}" data-id="${item.id}" data-section="${section||''}">Set current</button>`;
-  if(kind === 'whitebook'){
-    return `<div class="rp-item"><div class="headrow"><div><strong>${item.number}</strong> · ${item.pages||'?'} pages · received ${item.date_received||'—'}</div><div style="display:flex; gap:8px; align-items:center;">${qChip}</div></div>
-      <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">${currentBtn}<button class="btn small" data-action="complete-white-book" data-id="${item.id}">Mark complete</button></div></div>`;
+  let sub;
+  if(kind==='whitebook') sub = `${item.pages||'?'} pages`;
+  else {
+    const chapters = CHAPTERS.filter(c=>c.project_id===item.id);
+    const done = chapters.filter(c=>c.done).length;
+    sub = `${done}/${item.total_chapters} chapters`;
   }
-  const chapters = CHAPTERS.filter(c=>c.project_id===item.id).sort((a,b)=>a.chapter_number-b.chapter_number);
-  const done = chapters.filter(c=>c.done).length;
-  const pagesOpen = state.rpPagesOpen.has(item.id);
-  return `<div class="rp-item"><div class="headrow"><strong>${item.title}</strong>${qChip}</div>
-    <div class="habit-sub">${item.total_chapters} chapters · ~${item.pages_per_chapter||'?'} pages each · started ${item.start_date||'—'}</div>
-    <div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" title="${c.pages?c.pages+' pages':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
-    <button class="btn small" style="margin-top:6px;" data-action="toggle-chapter-pages" data-id="${item.id}">${pagesOpen?'Hide':'Set'} page counts (optional)</button>
-    ${pagesOpen ? `<div class="chapter-grid" style="margin-top:6px;">${chapters.map(c=>`<input type="number" data-action-blur="save-chapter-pages" data-id="${c.id}" value="${c.pages||''}" placeholder="pp" style="width:44px; padding:4px; font-size:10.5px;">`).join('')}</div>` : ''}
-    <div class="barTrack"><div class="barFill" style="width:${Math.round(done/item.total_chapters*100)}%; background:var(--accent);"></div></div>
-    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">${currentBtn}<button class="btn small primary" data-action="complete-project" data-id="${item.id}">Mark project complete</button></div></div>`;
+  return `<div class="rlist-tile" data-action="open-focused" data-kind="${kind}" data-id="${item.id}">
+    <button class="star-btn ${item.is_current?'active':''}" data-action="set-current" data-kind="${kind}" data-id="${item.id}" data-section="${section||''}" title="Set as current">${item.is_current?'★':'☆'}</button>
+    <div style="flex:1; min-width:0;"><div class="t">${itemTitle(kind,item)}</div><div class="s">${sub}</div></div>
+    ${qChip}
+  </div>`;
 }
 
 async function addWhiteBook(){
@@ -1105,19 +1122,36 @@ function setupDragReorder(container, kind){
 // ---- Focused Current Reading view ----
 function openFocused(kind, id){ state.rpFocus = { tab: state.rpTab, kind, id }; renderReadingBody(); }
 function closeFocused(){ state.rpFocus = null; renderReadingBody(); }
+function totalPagesFor(kind, item){
+  if(kind==='whitebook') return item.pages || null;
+  const chapters = CHAPTERS.filter(c=>c.project_id===item.id);
+  if(!chapters.length) return null;
+  const sum = chapters.reduce((s,c)=> s + (c.pages || item.pages_per_chapter || 0), 0);
+  return sum || null;
+}
 function renderFocusedReading(body){
   const { kind } = state.rpFocus;
   const item = kind==='whitebook' ? WHITE_BOOKS.find(w=>w.id===state.rpFocus.id) : PROJECTS.find(p=>p.id===state.rpFocus.id);
   if(!item){ closeFocused(); return; }
   const linkedImpressions = IMPRESSIONS.filter(e=> kind==='whitebook' ? e.linked_white_book_id===item.id : e.linked_project_id===item.id)
     .sort((a,b)=> new Date(b.reading_date||b.created_at) - new Date(a.reading_date||a.created_at));
+  const linkedProgress = PROGRESS.filter(p=> kind==='whitebook' ? p.linked_white_book_id===item.id : p.linked_project_id===item.id)
+    .sort((a,b)=> new Date(b.entry_date) - new Date(a.entry_date));
+  const pagesTotal = totalPagesFor(kind, item);
+  const pagesSoFar = linkedProgress.reduce((s,p)=>s+p.pages_read, 0);
+  const pct = pagesTotal ? Math.min(100, Math.round(pagesSoFar/pagesTotal*100)) : null;
+
   let chaptersHTML = '';
   if(kind==='project'){
     const chapters = CHAPTERS.filter(c=>c.project_id===item.id).sort((a,b)=>a.chapter_number-b.chapter_number);
     const done = chapters.filter(c=>c.done).length;
-    chaptersHTML = `<div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
+    const pagesOpen = state.rpPagesOpen.has(item.id);
+    chaptersHTML = `<div class="chapter-grid">${chapters.map(c=>`<div class="chapter ${c.done?'done':''}" title="${c.pages?c.pages+' pages':''}" data-action="toggle-chapter" data-id="${c.id}">${c.chapter_number}</div>`).join('')}</div>
+      <button class="btn small" style="margin-top:6px;" data-action="toggle-chapter-pages" data-id="${item.id}">${pagesOpen?'Hide':'Set'} page counts (optional)</button>
+      ${pagesOpen ? `<div class="chapter-grid" style="margin-top:6px;">${chapters.map(c=>`<input type="number" data-action-blur="save-chapter-pages" data-id="${c.id}" value="${c.pages||''}" placeholder="pp" style="width:44px; padding:4px; font-size:10.5px;">`).join('')}</div>` : ''}
       <div class="barTrack"><div class="barFill" style="width:${Math.round(done/item.total_chapters*100)}%; background:var(--accent);"></div></div>`;
   }
+
   body.innerHTML = `
     <button class="btn small" data-action="close-focused">← Back to list</button>
     <div class="focused-reading" id="focused-reading-wrap">
@@ -1125,7 +1159,23 @@ function renderFocusedReading(body){
         <h2 class="pagetitle" style="font-size:20px;">${itemTitle(kind,item)}</h2>
         <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages · received '+(item.date_received||'—') : item.total_chapters+' chapters · started '+(item.start_date||'—')}</p>
         ${chaptersHTML}
-        <div class="card" id="add-imp-from-reading" style="margin-top:16px;">
+        <button class="btn small primary" style="margin-top:10px;" data-action="${kind==='whitebook'?'complete-white-book':'complete-project'}" data-id="${item.id}">Mark complete</button>
+
+        <div class="section-label">Reading progress</div>
+        <div class="card">
+          ${pagesTotal ? `<div style="font-size:13px; font-weight:600; margin-bottom:8px;">${pagesSoFar} of ${pagesTotal} pages (${pct}%)</div><div class="barTrack"><div class="barFill" style="width:${pct}%; background:var(--accent);"></div></div>` : '<div class="empty" style="padding:0 0 10px;">Total pages unknown for this item, so no % yet — you can still log pages read.</div>'}
+          <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="max-width:110px; margin-bottom:0;"><label>Pages read</label><input type="number" id="prog-pages" placeholder="e.g. 3"></div>
+            <div class="field" style="max-width:150px; margin-bottom:0;"><label>Date</label><input type="date" id="prog-date" value="${todayStr()}"></div>
+            <button class="btn small primary" data-action="submit-progress">Log</button>
+          </div>
+          <div style="margin-top:12px;">
+            ${linkedProgress.length ? linkedProgress.map(p=>`<div class="progress-row"><span>${new Date(p.entry_date).toLocaleDateString()}</span><span>${p.pages_read} pages</span></div>`).join('') : '<div class="rlist-empty">No progress logged yet — this is where your daily page count will show up.</div>'}
+          </div>
+        </div>
+
+        <div class="section-label">Add an impression</div>
+        <div class="card" id="add-imp-from-reading">
           <div class="field"><label>Page number (optional)</label><input type="number" id="ri-page" style="max-width:100px;"></div>
           <div class="field"><label>Date read</label><input type="date" id="ri-date" value="${todayStr()}"></div>
           <div class="field"><label>What stood out?</label><textarea id="ri-text"></textarea></div>
@@ -1136,10 +1186,27 @@ function renderFocusedReading(body){
       <div class="focused-divider" id="focused-divider"></div>
       <div class="focused-log">
         <h3 style="font-size:13px; font-weight:700; margin-bottom:8px;">Impressions from this book</h3>
-        ${linkedImpressions.length ? linkedImpressions.map(e=>`<div class="imp-entry"><div class="imp-meta">${e.page_number?`<span>p.${e.page_number}</span>`:''}<span>· ${new Date(e.reading_date||e.created_at).toLocaleDateString()}</span></div><div>${e.content}</div>${(e.labels||[]).length?`<div style="margin-top:4px;">${(e.labels||[]).map(l=>`<span class="tag pillar">${l}</span>`).join(' ')}</div>`:''}</div>`).join('') : '<p class="empty">No impressions logged against this book yet.</p>'}
+        ${linkedImpressions.length ? linkedImpressions.map(e=>`<div class="imp-entry"><div class="imp-meta">${e.page_number?`<span>p.${e.page_number}</span>`:''}<span>· ${new Date(e.reading_date||e.created_at).toLocaleDateString()}</span></div><div>${e.content}</div>${(e.labels||[]).length?`<div style="margin-top:4px;">${(e.labels||[]).map(l=>`<span class="tag pillar">${l}</span>`).join(' ')}</div>`:''}</div>`).join('') : '<div class="rlist-empty">No impressions yet — this is where they\u2019ll appear once you add one.</div>'}
       </div>
     </div>`;
+  body.querySelectorAll('input[data-action-blur="save-chapter-pages"]').forEach(inp=>{
+    inp.addEventListener('focusout', ()=> saveChapterPages(inp.dataset.id, inp.value));
+  });
   setupResizableDivider();
+}
+async function submitProgress(){
+  const { kind, id } = state.rpFocus;
+  const pages = parseInt(document.getElementById('prog-pages').value);
+  const date = document.getElementById('prog-date').value || todayStr();
+  if(!pages || pages<=0){ showToast('Enter a positive number of pages.'); return; }
+  const { data: { user } } = await supabase.auth.getUser();
+  const row = { entry_date: date, pages_read: pages, created_by: user?.id,
+    linked_white_book_id: kind==='whitebook' ? id : null, linked_project_id: kind==='project' ? id : null };
+  const { error } = await supabase.from('reading_progress').insert(row);
+  if(error){ showToast('Could not save: '+error.message); return; }
+  await loadAll();
+  renderFocusedReading(document.getElementById('rp-body'));
+  showToast('Progress logged.');
 }
 async function submitReadingImpression(){
   const { kind, id } = state.rpFocus;
@@ -1420,6 +1487,7 @@ document.addEventListener('click', (e)=>{
   else if(action === 'open-focused') openFocused(el.dataset.kind, el.dataset.id);
   else if(action === 'close-focused') closeFocused();
   else if(action === 'submit-reading-impression') submitReadingImpression();
+  else if(action === 'submit-progress') submitProgress();
   else if(action === 'toggle-chapter-pages') toggleChapterPages(el.dataset.id);
   else if(action === 'set-imp-source'){ state.impSource = el.dataset.source; renderImpressionsPanel(); }
   else if(action === 'filter-imp-label'){ state.impLabelFilter = el.dataset.label || null; renderImpressionsPanel(); }
@@ -1457,8 +1525,10 @@ document.querySelectorAll('.view-toggle').forEach(group=>{
   function setCollapsed(v){
     collapsed = v;
     shell.classList.toggle('collapsed', v);
+    document.getElementById('show-sidebar-btn').classList.toggle('visible', v);
     try { localStorage.setItem('hoc-sidebar-collapsed', v ? '1' : '0'); } catch(e){}
   }
+  if(collapsed) document.getElementById('show-sidebar-btn').classList.add('visible');
   document.getElementById('collapse-btn').addEventListener('click', ()=> setCollapsed(true));
   document.getElementById('show-sidebar-btn').addEventListener('click', ()=> setCollapsed(false));
 })();
