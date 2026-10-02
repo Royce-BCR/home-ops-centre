@@ -175,6 +175,13 @@
   .fivep-cell textarea:focus{outline:1px solid var(--accent); border-radius:6px;}
   .fivep-cell.dragging-col, .fivep-cell.dragging-row{opacity:0.4;}
   .fivep-entry{font-size:11.5px; margin-top:4px; display:flex; gap:5px; align-items:flex-start;}
+  .goal-card.sketch{border-style:dashed; background:var(--bg);}
+  .goal-card.ready{border-color:#A9D5B8; background:#F3FAF5;}
+  .goal-card.complete{border-color:var(--habit); background:#E4F5EA;}
+  .tag.sketch{background:#EEF1F3; color:#5B6B7A; border:1px dashed #9AA5B1;}
+  .tag.ready{background:#DDF1E4; color:#1F8F53;}
+  .tag.behind{background:#FDECEA; color:#B4442E;}
+  .gapline{font-size:11.5px; color:var(--action); margin-top:6px;}
   .fivep-entry .owner-dot{margin-top:1px; flex-shrink:0;}
 
   /* Reading Plan two-column layout */
@@ -295,7 +302,7 @@
 
     <section class="panel" id="panel-goals">
       <div class="headrow">
-        <div class="section-label" style="margin-top:0;">Goals <button class="btn small" data-action="open-add-goal">+ Add goal</button></div>
+        <div class="section-label" style="margin-top:0;">Goals <button class="btn small" data-action="open-add-goal">+ Add goal</button> <button class="btn small primary" data-action="open-wizard">Guided setup</button></div>
         <div class="view-toggle" id="goals-view-toggle"><button data-view="all" class="active">All</button><button data-view="mine">Mine</button></div>
       </div>
       <h1 class="pagetitle" style="font-size:22px;">Every pillar, one list</h1>
@@ -399,6 +406,23 @@
   </div>
 </div>
 
+<div class="overlay" id="archive-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;">Archive goal</h2></div>
+    <div id="archive-body"></div>
+    <div class="overlay-foot" id="archive-foot" style="flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<div class="overlay" id="wizard-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;">Guided setup</h2><button class="btn small" data-action="wiz-close">Close</button></div>
+    <div id="wiz-progress" style="font-size:11.5px; color:var(--muted); margin-bottom:10px;"></div>
+    <div id="wiz-body"></div>
+    <div class="overlay-foot"><button class="btn" data-action="wiz-skip">Skip this level</button><button class="btn primary" data-action="wiz-next" id="wiz-next">Next</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -408,8 +432,10 @@ const SUPABASE_URL = 'https://zibfnpjfftwqaacxpnjv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AW0C0xPrWkBUNXZTQAQTxw_UV3MbJUb';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const todayStr = () => new Date().toISOString().slice(0,10);
-const daysAgoStr = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+const fmtLocal = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const todayStr = () => fmtLocal(new Date());
+const daysAgoStr = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return fmtLocal(d); };
+const esc = (x) => String(x === null || x === undefined ? '' : x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -461,10 +487,11 @@ document.getElementById('signout-btn').addEventListener('click', async ()=>{
 
 // ---------------- STATE ----------------
 let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [];
+let ALL_GOALS = [], ARCHIVED_GOALS = [], ACTIONS_ALL = [], SCRATCH = [];
 let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [], PROGRESS = [], READING_GOALS = [];
 let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let VISION_ENTRIES = [];
-let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {} };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {}, notesOpen: new Set() };
 
 let currentUserRole = 'admin';
 async function boot(){
@@ -489,7 +516,7 @@ async function boot(){
 async function loadAll(){
   const [{ data: pillars }, { data: goals }, { data: habits }, { data: logs }, { data: actions }, { data: visions },
          { data: whiteBooks }, { data: projects }, { data: chapters }, { data: impressions },
-         { data: profs }, { data: resetEntries }, { data: progress }] = await Promise.all([
+         { data: profs }, { data: resetEntries }, { data: progress }, { data: readingGoals }, { data: scratch }] = await Promise.all([
     supabase.from('pillars').select('*').order('sort_order'),
     supabase.from('goals').select('*').order('created_at'),
     supabase.from('habits').select('*').order('created_at'),
@@ -504,10 +531,11 @@ async function loadAll(){
     supabase.from('reset_plan_entries').select('*'),
     supabase.from('reading_progress').select('*'),
     supabase.from('reading_goals').select('*'),
+    supabase.from('scratch_notes').select('*').order('created_at', { ascending: false }),
   ]);
-  PILLARS = pillars || []; GOALS = goals || []; HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS = actions || []; VISION_ENTRIES = visions || [];
+  PILLARS = pillars || []; ALL_GOALS = goals || []; GOALS = ALL_GOALS.filter(g=>!g.archived); ARCHIVED_GOALS = ALL_GOALS.filter(g=>g.archived); HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS_ALL = actions || []; ACTIONS = ACTIONS_ALL.filter(a=>!a.archived); VISION_ENTRIES = visions || [];
   WHITE_BOOKS = whiteBooks || []; PROJECTS = projects || []; CHAPTERS = chapters || []; IMPRESSIONS = impressions || [];
-  PROFILES = profs || []; RESET_ENTRIES = resetEntries || []; PROGRESS = progress || []; READING_GOALS = readingGoals || [];
+  PROFILES = profs || []; RESET_ENTRIES = resetEntries || []; PROGRESS = progress || []; READING_GOALS = readingGoals || []; SCRATCH = scratch || [];
   renderSidebarPillars();
 }
 
@@ -535,11 +563,12 @@ function habitOwnerBadgeHTML(ownerId){
 function profileOptions(selected){
   return PROFILES.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.display_name}</option>`).join('');
 }
-function ownerPickerHTML(allowHousehold){
+function ownerPickerHTML(allowHousehold, selected){
   if(currentUserRole !== 'admin'){
     return `<div class="field"><label>Whose is this?</label><div style="font-size:13px; padding:9px 0; color:var(--muted);">${ownerDotHTML(currentUserId)} ${profileOf(currentUserId)?.display_name||'You'} — assigned to you (only Admins can assign to others)</div></div>`;
   }
-  const opts = (allowHousehold ? '<option value="">Household (joint)</option>' : '') + profileOptions(currentUserId);
+  const sel = selected === undefined ? currentUserId : selected;
+  const opts = (allowHousehold ? '<option value="" ' + (sel === null ? 'selected' : '') + '>Household (joint)</option>' : '') + profileOptions(sel);
   return `<div class="field"><label>Whose is this?</label><select id="f-owner">${opts}</select></div>`;
 }
 function readOwnerField(){
@@ -583,10 +612,115 @@ function weekBounds(offsetWeeks){
   const diffToMonday = (day===0 ? -6 : 1-day);
   const monday = new Date(now); monday.setDate(now.getDate()+diffToMonday+offsetWeeks*7);
   const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
-  const fmt = d=>d.toISOString().slice(0,10);
+  const fmt = fmtLocal;
   return { start: fmt(monday), end: fmt(sunday) };
 }
+const TIER_NAMES = ['Someday','5-Year / 3-Year','Annual','Quarterly','Monthly','Weekly'];
+function levelTier(l){
+  if(l==='Someday' || l==='Long-term') return 0;
+  if(l==='5-Year' || l==='3-Year' || l==='3-year') return 1;
+  if(l==='Annual' || l==='1-year') return 2;
+  if(l==='Quarterly') return 3;
+  if(l==='Monthly') return 4;
+  if(l==='Weekly') return 5;
+  return 6;
+}
+function isComplete(g){
+  if(g.goal_type === 'numeric') return !!g.target && (g.current || 0) >= g.target;
+  return !!g.done;
+}
+function childGoalsOf(g){ return GOALS.filter(x=>x.parent_goal_id===g.id); }
+function childActionsOf(g){ return ACTIONS.filter(a=>a.goal_id===g.id); }
+function descendantsOf(g){
+  const out = []; const stack = [g];
+  while(stack.length){
+    const cur = stack.pop();
+    GOALS.filter(x=>x.parent_goal_id===cur.id).forEach(c=>{ out.push(c); stack.push(c); });
+  }
+  return out;
+}
+function goalState(g){
+  if(isComplete(g)) return { key:'complete', done:0, total:0 };
+  const kg = childGoalsOf(g), ka = childActionsOf(g);
+  const total = kg.length + ka.length;
+  const done = kg.filter(isComplete).length + ka.filter(a=>a.status==='done').length;
+  if(g.goal_type === 'binary' && total > 0 && done === total) return { key:'ready', done, total };
+  return { key:'progress', done, total };
+}
+function daysBehind(g){
+  if(g.plan_status === 'sketch' || isComplete(g) || !g.deadline) return 0;
+  const diff = Math.floor((new Date(todayStr()) - new Date(g.deadline)) / 86400000);
+  return diff > 0 ? diff : 0;
+}
+function goalGaps(g){
+  if(g.plan_status === 'sketch') return [];
+  const gaps = [];
+  const tier = levelTier(g.staircase_level);
+  if(tier <= 4){
+    const kg = childGoalsOf(g);
+    const hasNext = tier === 4
+      ? (kg.some(c=>levelTier(c.staircase_level)===5) || childActionsOf(g).length > 0)
+      : kg.some(c=>levelTier(c.staircase_level)===tier+1);
+    if(!hasNext) gaps.push(tier === 4 ? 'no weekly objectives yet' : 'no ' + TIER_NAMES[tier+1] + ' goal beneath it');
+  }
+  if(tier >= 2 && !g.parent_goal_id) gaps.push('not linked to a goal above');
+  return gaps;
+}
+
 function goalCardHTML(g, showPillarTag){
+  const pil = pillarOf(g.pillar_id);
+  const pct = goalProgressPct(g);
+  const st = goalState(g);
+  const sketch = g.plan_status === 'sketch';
+  const behind = daysBehind(g);
+  const gaps = goalGaps(g);
+  const tier = levelTier(g.staircase_level);
+  let body;
+  if(g.goal_type === 'numeric'){
+    body = `<div class="ladder-line"><strong>${g.longterm_note || ''}</strong> ${g.longterm_note ? '→ ' : ''}${g.staircase_level}: ${g.unit||''}${g.current||0} of ${g.unit||''}${g.target||0} (${pct}%)</div>
+      <div class="barTrack"><div class="barFill" style="width:${pct}%; background:${pil?pil.color:'#999'};"></div></div>`;
+  } else {
+    body = `<div class="ladder-line"><strong>${g.longterm_note || ''}</strong> ${g.longterm_note ? '→ ' : ''}${g.staircase_level} —
+      <label style="cursor:pointer;"><input type="checkbox" ${g.done?'checked':''} data-action="toggle-goal" data-id="${g.id}"> ${g.done?'Achieved':(st.key==='ready'?'Confirm achieved':'Mark achieved')}</label></div>`;
+  }
+  const tags = [];
+  if(g.is_focus) tags.push('<span class="tag focus">CURRENT FOCUS</span>');
+  if(sketch) tags.push('<span class="tag sketch">SKETCH</span>');
+  if(st.key === 'ready') tags.push('<span class="tag ready">READY TO CONFIRM</span>');
+  if(st.key === 'complete') tags.push('<span class="tag habit">COMPLETE</span>');
+  if(behind) tags.push(`<span class="tag behind">BEHIND ${behind} DAY${behind===1?'':'S'}</span>`);
+  if(showPillarTag && pil) tags.push(`<span class="tag pillar">${pil.name}</span>`);
+  const countHTML = st.total ? `<div style="font-size:11.5px; color:var(--muted); margin-top:6px;">${st.done} of ${st.total} beneath done</div>` : '';
+  const gapHTML = gaps.length ? `<div class="gapline">Incomplete: ${gaps.join('; ')}</div>` : '';
+  const parent = g.parent_goal_id ? GOALS.find(x=>x.id===g.parent_goal_id) : null;
+  const children = GOALS.filter(x=>x.parent_goal_id===g.id);
+  const parentHTML = parent ? `<div style="font-size:11.5px; color:var(--muted); margin-top:6px;">Part of: <a href="#" data-action="goto-goal" data-id="${parent.id}">${parent.staircase_level} — ${parent.title}</a></div>` : '';
+  const childrenHTML = children.length ? `<div style="font-size:11.5px; color:var(--muted); margin-top:4px;">Breaks down into: ${children.map(c=>`<a href="#" data-action="goto-goal" data-id="${c.id}" style="margin-right:8px;">${c.staircase_level} — ${c.title}${c.plan_status==='sketch'?' (sketch)':''}</a>`).join('')}</div>` : '';
+  let weeklyHTML = '';
+  if(tier >= 3 && !sketch){
+    const { start, end } = weekBounds(0);
+    const weekActions = ACTIONS.filter(a=>a.goal_id===g.id && a.due_date && a.due_date>=start && a.due_date<=end);
+    weeklyHTML = `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:11.5px; font-weight:700; color:var(--muted);">THIS WEEK (${start} – ${end})</span>
+      <button class="btn small" data-action="quick-add-weekly-action" data-goal="${g.id}" data-pillar="${g.pillar_id}">+ Add</button></div>
+      ${weekActions.length ? weekActions.map(a=>`<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:12.5px;"><span>${a.title}</span>${a.status==='done'?'<span class="tag habit">DONE</span>':`<button class="btn small" data-action="toggle-action" data-id="${a.id}">Mark done</button>`}</div>`).join('') : '<div class="empty" style="padding:6px 0 0;">Nothing set for this week yet.</div>'}
+    </div>`;
+  }
+  const notes = SCRATCH.filter(n=>n.goal_id===g.id);
+  const notesOpen = state.notesOpen.has(g.id);
+  const notesHTML = `<div style="margin-top:10px;"><a href="#" data-action="toggle-notes" data-id="${g.id}" style="font-size:12px;">Notes (${notes.length}) ${notesOpen?'▾':'▸'}</a>
+    ${notesOpen ? `<div style="margin-top:6px;">${notes.map(n=>`<div class="imp-entry" style="padding:6px 0;"><div class="imp-meta">${ownerDotHTML(n.created_by)}<span>${new Date(n.created_at).toLocaleDateString()}</span></div><div style="font-size:13px; white-space:pre-wrap;">${n.content}</div></div>`).join('')}
+      <textarea id="note-input-${g.id}" placeholder="Scratch pad: anything worth jotting down about this goal" style="margin-top:6px; min-height:50px;"></textarea>
+      <button class="btn small primary" style="margin-top:6px;" data-action="add-note" data-id="${g.id}">Add note</button></div>` : ''}</div>`;
+  const actionsHTML = `<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+    ${sketch ? `<button class="btn small primary" data-action="lock-goal" data-id="${g.id}">Lock in</button>` : ''}
+    <button class="btn small" data-action="edit-goal" data-id="${g.id}">Edit</button>
+    <button class="btn small" data-action="archive-goal" data-id="${g.id}">Archive</button></div>`;
+  const cls = 'goal-card' + (sketch?' sketch':'') + (st.key==='ready'?' ready':'') + (st.key==='complete'?' complete':'');
+  return `<div class="${cls}" id="goal-${g.id}"><div class="headrow"><div><div class="goal-title">${g.title} ${tags.join(' ')}</div>
+    <div class="goal-level">${g.deadline ? 'deadline '+g.deadline : 'no deadline set'} · ${ownerBadgeHTML(g.owner_id)}</div></div></div>${body}${countHTML}${gapHTML}${parentHTML}${childrenHTML}${weeklyHTML}${notesHTML}${actionsHTML}</div>`;
+}
+function goalCardHTML_old(g, showPillarTag){
   const pil = pillarOf(g.pillar_id);
   const pct = goalProgressPct(g);
   let body;
@@ -624,7 +758,7 @@ function renderToday(){
   document.getElementById('today-items').innerHTML = items.length ? items.map(i=>
     `<div class="today-item"><span class="dot" style="background:${i.color};"></span><span class="txt">${i.text}</span><span class="tag ${i.tag==='HABIT'?'habit':'action'}">${i.tag}</span></div>`
   ).join('') : '<p class="empty">Nothing outstanding — add goals, habits or actions to see them here.</p>';
-  const focus = GOALS.find(g=>g.is_focus);
+  const focus = GOALS.find(g=>g.is_focus && g.plan_status!=='sketch');
   document.getElementById('today-focus').innerHTML = focus ? goalCardHTML(focus, true) : '<p class="empty">No current focus goal set yet.</p>';
 }
 
@@ -835,7 +969,7 @@ async function saveVisionVersion(){
 // ---------------- BALANCE MAP ----------------
 function renderBalance(){
   const scores = PILLARS.map(p=>{
-    const goals = GOALS.filter(g=>g.pillar_id===p.id);
+    const goals = GOALS.filter(g=>g.pillar_id===p.id && g.plan_status!=='sketch');
     if(!goals.length) return null;
     const avg = Math.round(goals.reduce((s,g)=>s+goalProgressPct(g),0)/goals.length);
     return avg;
@@ -865,8 +999,13 @@ function renderBalance(){
 
 // ---------------- FLAT GOALS / HABITS / ACTIONS ----------------
 function renderGoalsFlat(){
-  const filtered = state.goalsView==='mine' ? GOALS.filter(g=> g.owner_id===currentUserId || !g.owner_id) : GOALS;
-  document.getElementById('goals-flat').innerHTML = filtered.length ? filtered.map(g=>goalCardHTML(g,true)).join('') : '<p class="empty">No goals to show here.</p>';
+  const base = state.goalsView==='mine' ? GOALS.filter(g=> g.owner_id===currentUserId || !g.owner_id) : GOALS;
+  const filtered = base.slice().sort((a,b)=> levelTier(a.staircase_level)-levelTier(b.staircase_level) || (a.deadline||'9999').localeCompare(b.deadline||'9999'));
+  let html = filtered.length ? filtered.map(g=>goalCardHTML(g,true)).join('') : '<p class="empty">No goals yet — try the Guided setup above, or add one.</p>';
+  if(ARCHIVED_GOALS.length){
+    html += `<details class="archive"><summary>Archived (${ARCHIVED_GOALS.length})</summary>${ARCHIVED_GOALS.map(g=>`<div class="rp-item"><strong>${g.title}</strong> · ${g.staircase_level} <button class="btn small" style="margin-left:8px;" data-action="restore-goal" data-id="${g.id}">Restore</button></div>`).join('')}</details>`;
+  }
+  document.getElementById('goals-flat').innerHTML = html;
 }
 function habitRowHTML(h, showPillar){
   const pil = pillarOf(h.pillar_id);
@@ -887,7 +1026,8 @@ function renderHabitsFlat(){
 }
 function actionRowHTML(a, showPillar){
   const pil = pillarOf(a.pillar_id);
-  const sub = (a.recurring ? (a.cadence||'Recurring') : 'One-off') + ' · ' + (a.status==='done' ? 'Done' : (a.due_date ? 'Due '+a.due_date : 'No date set'));
+  const behindDays = (a.status!=='done' && a.due_date && a.due_date < todayStr()) ? Math.floor((new Date(todayStr()) - new Date(a.due_date)) / 86400000) : 0;
+  const sub = (a.recurring ? (a.cadence||'Recurring') : 'One-off') + ' · ' + (a.status==='done' ? 'Done' : (a.due_date ? 'Due '+a.due_date : 'No date set')) + (behindDays ? ' · <span style="color:var(--danger); font-weight:700;">behind '+behindDays+' day'+(behindDays===1?'':'s')+'</span>' : '');
   let control;
   if(a.logs_value){
     control = a.status==='done' ? '<span class="tag habit">LOGGED</span>' :
@@ -982,7 +1122,7 @@ function tabItems(){
   if(state.rpTab === 'whitebooks') return { kind:'whitebook', list: WHITE_BOOKS, section: null };
   return { kind:'project', list: PROJECTS.filter(p=>p.section===state.rpTab), section: state.rpTab };
 }
-function itemTitle(kind, item){ return kind==='whitebook' ? item.number : item.title; }
+function itemTitle(kind, item){ return kind==='whitebook' ? item.number : (item.title + (item.volume ? ' — ' + item.volume : '')); }
 function sortActive(kind, items){
   const queued = items.filter(i=>i.queue_position!=null).sort((a,b)=>a.queue_position-b.queue_position);
   const rest = items.filter(i=>i.queue_position==null).sort((a,b)=>{
@@ -1018,6 +1158,8 @@ function renderReadingBody(){
     `<div class="field" style="max-width:460px;"><label>Add a ${section === 'ministry' ? 'Ministry' : 'Other'} reading project</label>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <input type="text" id="pr-title" placeholder="Title" style="flex:1; min-width:140px;">
+        <input type="text" id="pr-author" placeholder="Author (optional)" style="flex:1; min-width:120px;">
+        <input type="text" id="pr-volume" placeholder="Volume (optional)" style="max-width:130px;">
         <input type="number" id="pr-chapters" placeholder="Chapters" style="max-width:90px;">
         <input type="number" id="pr-pages" placeholder="Pages/ch (est.)" style="max-width:110px;">
         <input type="date" id="pr-start">
@@ -1040,7 +1182,7 @@ function renderReadingBody(){
       <details class="archive"><summary>Archive (${archive.length})</summary>
       ${archive.map(i=> kind==='whitebook'
         ? `<div class="rp-item"><strong>${i.number}</strong> · ${i.pages||'?'} pages · completed ${i.completed_date||'—'} <button class="btn small" data-action="unarchive-white-book" data-id="${i.id}">Undo</button></div>`
-        : `<div class="rp-item"><strong>${i.title}</strong> · completed ${i.completed_date||'—'}</div>`
+        : `<div class="rp-item"><strong>${itemTitle('project', i)}</strong>${i.author ? ' · '+i.author : ''} · completed ${i.completed_date||'—'}</div>`
       ).join('')}
       </details>`;
   }
@@ -1148,7 +1290,7 @@ function rlistTileHTML(kind, item, section){
   else {
     const chapters = CHAPTERS.filter(c=>c.project_id===item.id);
     const done = chapters.filter(c=>c.done).length;
-    sub = `${done}/${item.total_chapters} chapters`;
+    sub = `${item.author ? item.author + ' · ' : ''}${done}/${item.total_chapters} chapters`;
   }
   return `<div class="rlist-tile" data-action="open-focused" data-kind="${kind}" data-id="${item.id}">
     <button class="star-btn ${item.is_current?'active':''}" data-action="set-current" data-kind="${kind}" data-id="${item.id}" data-section="${section||''}" title="Set as current">${item.is_current?'★':'☆'}</button>
@@ -1177,7 +1319,7 @@ async function addProject(section){
   const title = document.getElementById('pr-title').value.trim();
   const totalChapters = parseInt(document.getElementById('pr-chapters').value);
   if(!title || !totalChapters){ showToast('Title and chapter count are required.'); return; }
-  const row = { section, title, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
+  const row = { section, title, author: document.getElementById('pr-author').value.trim() || null, volume: document.getElementById('pr-volume').value.trim() || null, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
   const { data, error } = await supabase.from('reading_projects').insert(row).select();
   if(error){ showToast('Could not save: '+error.message); return; }
   const project = data[0];
@@ -1317,7 +1459,7 @@ function renderFocusedReading(body){
     <div class="focused-reading" id="focused-reading-wrap">
       <div class="focused-center" id="focused-center">
         <h2 class="pagetitle" style="font-size:20px;">${itemTitle(kind,item)}</h2>
-        <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages · received '+(item.date_received||'—') : item.total_chapters+' chapters · started '+(item.start_date||'—')}</p>
+        <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages · received '+(item.date_received||'—') : (item.author ? 'by '+item.author+' · ' : '')+item.total_chapters+' chapters · started '+(item.start_date||'—')}</p>
         ${chaptersHTML}
         <button class="btn small primary" style="margin-top:10px;" data-action="${kind==='whitebook'?'complete-white-book':'complete-project'}" data-id="${item.id}">Mark complete</button>
 
@@ -1472,7 +1614,245 @@ async function submitImpression(prefill){
 }
 
 // ---------------- ADD OVERLAY (Goal / Habit / Action / Log) ----------------
-let addMode = null, addTargetAction = null;
+let addMode = null, addTargetAction = null, editingGoal = null, archivingId = null, wiz = null;
+
+function goalFormHTML(g){
+  const val = (x) => (x === null || x === undefined) ? '' : esc(x);
+  const levels = ['Someday','5-Year','3-Year','Annual','Quarterly','Monthly','Weekly'];
+  const lvl = g ? g.staircase_level : 'Quarterly';
+  const levelOpts = levels.map(l=>`<option ${l===lvl?'selected':''}>${l}</option>`).join('');
+  const parentOpts = '<option value="">— none, this is top-level —</option>' + GOALS.filter(x=>!g || x.id!==g.id).map(x=>`<option value="${x.id}" ${g && g.parent_goal_id===x.id ? 'selected' : ''}>${esc(x.staircase_level)} — ${esc(x.title)}</option>`).join('');
+  const numeric = !g || g.goal_type === 'numeric';
+  const sketch = g && g.plan_status === 'sketch';
+  return `
+    <div class="field"><label>Title</label><input type="text" id="f-title" value="${val(g && g.title)}" placeholder="Save £15k deposit"></div>
+    <div class="row2">
+      <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions(g && g.pillar_id)}</select></div>
+      <div class="field"><label>Staircase level</label><select id="f-level">${levelOpts}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Status</label><select id="f-plan"><option value="locked" ${sketch?'':'selected'}>Locked in</option><option value="sketch" ${sketch?'selected':''}>Sketch (rough plan)</option></select></div>
+      <div class="field"><label>Type</label><select id="f-type" onchange="document.getElementById('numeric-fields').style.display=this.value==='numeric'?'flex':'none'">
+        <option value="numeric" ${numeric?'selected':''}>Numeric (target + measurement)</option><option value="binary" ${numeric?'':'selected'}>Binary (done / not done)</option></select></div>
+    </div>
+    <div class="row2" id="numeric-fields" style="display:${numeric?'flex':'none'};">
+      <div class="field"><label>Target</label><input type="number" id="f-target" value="${val(g && g.target)}"></div>
+      <div class="field"><label>Current</label><input type="number" id="f-current" value="${g ? val(g.current) : '0'}"></div>
+      <div class="field"><label>Unit</label><input type="text" id="f-unit" value="${val(g && g.unit)}" placeholder="£ / lb"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Window starts</label><input type="date" id="f-start" value="${val(g && g.window_start)}"></div>
+      <div class="field"><label>Deadline</label><input type="date" id="f-deadline" value="${val(g && g.deadline)}"></div>
+    </div>
+    <div class="field"><label>Long-term note</label><input type="text" id="f-longterm" value="${val(g && g.longterm_note)}" placeholder="First home & financial security"></div>
+    <div class="field"><label>Part of (parent goal, optional)</label><select id="f-parent">${parentOpts}</select></div>
+    ${ownerPickerHTML(true, g ? g.owner_id : undefined)}
+    <div class="field"><label><input type="checkbox" id="f-focus" ${g && g.is_focus ? 'checked' : ''}> Mark as current focus (the ONE Thing)</label></div>
+  `;
+}
+function openEditGoal(id, lock){
+  const g = GOALS.find(x=>x.id===id); if(!g) return;
+  editingGoal = lock ? Object.assign({}, g, { plan_status: 'locked' }) : g;
+  openAddOverlay('goal-edit');
+}
+
+// ---- Scratch pad notes ----
+async function addNote(goalId){
+  const el = document.getElementById('note-input-' + goalId);
+  const content = el ? el.value.trim() : '';
+  if(!content) return;
+  const { error } = await supabase.from('scratch_notes').insert({ goal_id: goalId, content, created_by: currentUserId });
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  await loadAll(); renderActive();
+}
+
+// ---- Archive (asks what to do with everything beneath) ----
+function openArchive(id){
+  const g = GOALS.find(x=>x.id===id); if(!g) return;
+  archivingId = id;
+  const kids = descendantsOf(g);
+  const acts = ACTIONS.filter(a=> a.goal_id===g.id || kids.some(k=>k.id===a.goal_id)).length;
+  const beneath = kids.length + acts;
+  document.getElementById('archive-body').innerHTML = beneath
+    ? `<p style="font-size:13.5px;">"${esc(g.title)}" has ${kids.length} goal${kids.length===1?'':'s'} and ${acts} action${acts===1?'':'s'} beneath it. What should happen to them?</p>`
+    : `<p style="font-size:13.5px;">Archive "${esc(g.title)}"? You can restore it later from the Archived list.</p>`;
+  document.getElementById('archive-foot').innerHTML = beneath
+    ? `<button class="btn" data-action="close-archive">Cancel</button><button class="btn" data-action="do-archive" data-mode="one">Archive just this goal</button><button class="btn primary" data-action="do-archive" data-mode="all">Archive it and everything beneath</button>`
+    : `<button class="btn" data-action="close-archive">Cancel</button><button class="btn primary" data-action="do-archive" data-mode="one">Archive</button>`;
+  document.getElementById('archive-overlay').classList.add('open');
+}
+async function doArchive(mode){
+  const g = GOALS.find(x=>x.id===archivingId); if(!g) return;
+  const ts = new Date().toISOString();
+  const goalIds = mode === 'all' ? [g.id, ...descendantsOf(g).map(k=>k.id)] : [g.id];
+  const r1 = await supabase.from('goals').update({ archived: true, archived_at: ts }).in('id', goalIds);
+  if(r1.error){ showToast('Could not archive: ' + r1.error.message); return; }
+  if(mode === 'all'){
+    await supabase.from('actions').update({ archived: true, archived_at: ts }).in('goal_id', goalIds);
+  } else {
+    await supabase.from('goals').update({ parent_goal_id: null }).eq('parent_goal_id', g.id);
+    await supabase.from('actions').update({ goal_id: null }).eq('goal_id', g.id);
+  }
+  document.getElementById('archive-overlay').classList.remove('open');
+  await loadAll(); renderActive(); showToast('Archived.');
+}
+async function restoreGoal(id){
+  const g = ARCHIVED_GOALS.find(x=>x.id===id); if(!g || !g.archived_at) return;
+  await supabase.from('goals').update({ archived: false, archived_at: null }).eq('archived_at', g.archived_at);
+  await supabase.from('actions').update({ archived: false, archived_at: null }).eq('archived_at', g.archived_at);
+  await loadAll(); renderActive(); showToast('Restored.');
+}
+
+// ---- Guided setup: walks down the staircase, level by level ----
+function quarterBounds(d){
+  const q = Math.floor(d.getMonth() / 3);
+  return { q: q + 1, start: fmtLocal(new Date(d.getFullYear(), q * 3, 1)), end: fmtLocal(new Date(d.getFullYear(), q * 3 + 3, 0)) };
+}
+function monthBounds(d){
+  return { start: fmtLocal(new Date(d.getFullYear(), d.getMonth(), 1)), end: fmtLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+}
+const WIZ_STEPS = ['someday','long','sketchYears','annual','quarter','sketchQuarters','month','weekly'];
+function wizVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function startWizard(){
+  wiz = { i: 0, pillar: PILLARS[0] ? PILLARS[0].id : null, owner: currentUserId, parent: null, somedayId: null, longId: null, annualId: null, horizon: 5 };
+  document.getElementById('wizard-overlay').classList.add('open');
+  renderWizard();
+}
+function wizAutoSkip(key){
+  if(key === 'sketchYears') return !wiz.longId;
+  if(key === 'sketchQuarters') return quarterBounds(new Date()).q >= 4;
+  return false;
+}
+function renderWizard(){
+  while(wiz.i < WIZ_STEPS.length && wizAutoSkip(WIZ_STEPS[wiz.i])) wiz.i++;
+  if(wiz.i >= WIZ_STEPS.length){ wizFinish(); return; }
+  const key = WIZ_STEPS[wiz.i];
+  const now = new Date(); const y = now.getFullYear(); const qb = quarterBounds(now); const mb = monthBounds(now);
+  const H = (t, sub) => `<h3 style="font-size:16px; font-weight:700; margin-bottom:4px;">${t}</h3><p class="subtitle" style="margin:0 0 14px;">${sub}</p>`;
+  const titleField = (ph) => `<div class="field"><label>Title</label><input type="text" id="w-title" placeholder="${ph}"></div>`;
+  const targetFields = `<div class="row2"><div class="field"><label>Target (optional)</label><input type="number" id="w-target" placeholder="e.g. 15000"></div><div class="field"><label>Unit</label><input type="text" id="w-unit" placeholder="£ / lb / books"></div></div>`;
+  const sketchRows = (labels) => labels.map((lab, idx) => `<div class="field" style="border-top:1px solid var(--border); padding-top:10px;"><label>${lab}</label><input type="text" id="s-title-${idx}" placeholder="Rough goal for this window">
+    <div class="row2" style="margin-top:6px;"><input type="number" id="s-target-${idx}" placeholder="Target (optional)"><input type="text" id="s-unit-${idx}" placeholder="Unit"></div></div>`).join('');
+  let html = '';
+  if(key === 'someday'){
+    html = H("What's the big someday goal?", "The far-off picture. We'll break it down one level at a time.") + titleField('Financial independence and our own home') +
+      `<div class="field"><label>Pillar</label><select id="w-pillar">${pillarOptions(wiz.pillar)}</select></div>` +
+      (currentUserRole === 'admin' ? `<div class="field"><label>Whose goal?</label><select id="w-owner"><option value="">Household (joint)</option>${profileOptions(currentUserId)}</select></div>` : '');
+  } else if(key === 'long'){
+    html = H('Where should that be in 3 or 5 years?', 'The long-term milestone that the someday goal builds towards.') +
+      `<div class="field"><label>Horizon</label><select id="w-horizon"><option value="5" ${wiz.horizon===5?'selected':''}>5-Year</option><option value="3" ${wiz.horizon===3?'selected':''}>3-Year</option></select></div>` + titleField('Buy our forever home') + targetFields;
+  } else if(key === 'sketchYears'){
+    const labels = []; for(let k = 2; k <= wiz.horizon; k++) labels.push('Year ' + k + ' (' + (y + k - 1) + ')');
+    html = H('Sketch the later years', 'Rough is fine. These stay as sketches until you reach them, and you can change them at any review.') + sketchRows(labels);
+  } else if(key === 'annual'){
+    html = H('What does this year need to deliver?', 'Runs to 31 Dec ' + y + '. This is the first of your milestones, locked in.') + titleField('Save a £15k deposit') + targetFields;
+  } else if(key === 'quarter'){
+    html = H('What does this quarter need to deliver?', 'Q' + qb.q + ' runs to ' + qb.end + '.') + titleField('Save £3,750 this quarter') + targetFields;
+  } else if(key === 'sketchQuarters'){
+    const labels = []; for(let qn = qb.q + 1; qn <= 4; qn++) labels.push('Q' + qn + ' ' + y);
+    html = H('Sketch the rest of this year', 'A rough idea of each remaining quarter. You will lock each one in when you get there.') + sketchRows(labels);
+  } else if(key === 'month'){
+    html = H('What does this month need to deliver?', 'Runs to ' + mb.end + '.') + titleField('Save £1,250 this month') + targetFields;
+  } else if(key === 'weekly'){
+    html = H("What are this week's objectives?", 'The specific things that move the month forward. Up to three; they appear as this week\u2019s objectives.') +
+      [0,1,2].map(k => `<div class="field"><label>Objective ${k+1}</label><input type="text" id="k-${k}"></div>`).join('');
+  }
+  document.getElementById('wiz-progress').textContent = 'Step ' + (wiz.i + 1) + ' of ' + WIZ_STEPS.length;
+  document.getElementById('wiz-body').innerHTML = html;
+  document.getElementById('wiz-next').textContent = (wiz.i === WIZ_STEPS.length - 1) ? 'Finish' : 'Next';
+}
+async function wizInsertGoal(row){
+  const { data, error } = await supabase.from('goals').insert(row).select();
+  if(error){ showToast('Could not save: ' + error.message); return null; }
+  return data[0];
+}
+async function wizMakeGoal(level, start, end){
+  const title = wizVal('w-title');
+  if(!title){ showToast('Add a title, or tap Skip.'); return null; }
+  const target = parseFloat(wizVal('w-target')); const numeric = !isNaN(target) && target > 0;
+  return await wizInsertGoal({ title, pillar_id: wiz.pillar, staircase_level: level, goal_type: numeric ? 'numeric' : 'binary',
+    target: numeric ? target : null, current: numeric ? 0 : null, unit: numeric ? (wizVal('w-unit') || null) : null,
+    window_start: start, deadline: end, plan_status: 'locked', parent_goal_id: wiz.parent, owner_id: wiz.owner, done: false });
+}
+async function wizMakeSketches(level, defs, parentId){
+  for(const d of defs){
+    const title = wizVal('s-title-' + d.idx); if(!title) continue;
+    const target = parseFloat(wizVal('s-target-' + d.idx)); const numeric = !isNaN(target) && target > 0;
+    const g = await wizInsertGoal({ title, pillar_id: wiz.pillar, staircase_level: level, goal_type: numeric ? 'numeric' : 'binary',
+      target: numeric ? target : null, current: numeric ? 0 : null, unit: numeric ? (wizVal('s-unit-' + d.idx) || null) : null,
+      window_start: d.start, deadline: d.end, plan_status: 'sketch', parent_goal_id: parentId || null, owner_id: wiz.owner, done: false });
+    if(!g) return false;
+  }
+  return true;
+}
+async function wizCreate(key){
+  const now = new Date(); const y = now.getFullYear(); const qb = quarterBounds(now); const mb = monthBounds(now);
+  if(key === 'someday'){
+    const title = wizVal('w-title'); if(!title){ showToast('Add a title, or tap Skip.'); return false; }
+    wiz.pillar = wizVal('w-pillar') || wiz.pillar;
+    const ownerEl = document.getElementById('w-owner'); wiz.owner = ownerEl ? (ownerEl.value || null) : currentUserId;
+    const g = await wizInsertGoal({ title, pillar_id: wiz.pillar, staircase_level: 'Someday', goal_type: 'binary', plan_status: 'locked', owner_id: wiz.owner, done: false, parent_goal_id: null, window_start: todayStr() });
+    if(!g) return false;
+    wiz.somedayId = g.id; wiz.parent = g.id; return true;
+  }
+  if(key === 'long'){
+    wiz.horizon = parseInt(wizVal('w-horizon')) || 5;
+    const g = await wizMakeGoal(wiz.horizon === 5 ? '5-Year' : '3-Year', y + '-01-01', (y + wiz.horizon - 1) + '-12-31');
+    if(!g) return false;
+    wiz.longId = g.id; wiz.parent = g.id; return true;
+  }
+  if(key === 'sketchYears'){
+    const defs = []; for(let k = 2; k <= wiz.horizon; k++) defs.push({ idx: k - 2, start: (y + k - 1) + '-01-01', end: (y + k - 1) + '-12-31' });
+    return await wizMakeSketches('Annual', defs, wiz.longId);
+  }
+  if(key === 'annual'){
+    const g = await wizMakeGoal('Annual', y + '-01-01', y + '-12-31');
+    if(!g) return false;
+    wiz.annualId = g.id; wiz.parent = g.id; return true;
+  }
+  if(key === 'quarter'){
+    const g = await wizMakeGoal('Quarterly', qb.start, qb.end);
+    if(!g) return false;
+    wiz.parent = g.id; return true;
+  }
+  if(key === 'sketchQuarters'){
+    const defs = []; for(let qn = qb.q + 1; qn <= 4; qn++){ const b = quarterBounds(new Date(y, (qn - 1) * 3, 1)); defs.push({ idx: qn - qb.q - 1, start: b.start, end: b.end }); }
+    return await wizMakeSketches('Quarterly', defs, wiz.annualId || wiz.longId || wiz.somedayId);
+  }
+  if(key === 'month'){
+    const g = await wizMakeGoal('Monthly', mb.start, mb.end);
+    if(!g) return false;
+    wiz.parent = g.id; return true;
+  }
+  if(key === 'weekly'){
+    for(let k = 0; k < 3; k++){
+      const t = wizVal('k-' + k); if(!t) continue;
+      const { error } = await supabase.from('actions').insert({ title: t, pillar_id: wiz.pillar, goal_id: wiz.parent, due_date: weekBounds(0).end, owner_id: wiz.owner, status: 'due', recurring: false, logs_value: false });
+      if(error){ showToast('Could not save: ' + error.message); return false; }
+    }
+    return true;
+  }
+  return true;
+}
+async function wizAdvance(doCreate){
+  if(!wiz) return;
+  if(doCreate){ const ok = await wizCreate(WIZ_STEPS[wiz.i]); if(!ok) return; }
+  wiz.i++;
+  renderWizard();
+}
+async function wizFinish(){
+  document.getElementById('wizard-overlay').classList.remove('open');
+  wiz = null;
+  await loadAll();
+  showPanel('goals');
+  showToast('Setup saved. Anything left out is flagged as incomplete on its goal.');
+}
+async function wizClose(){
+  document.getElementById('wizard-overlay').classList.remove('open');
+  wiz = null;
+  await loadAll(); renderActive();
+}
+
 function pillarOptions(selected){
   return PILLARS.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.name}</option>`).join('');
 }
@@ -1482,32 +1862,10 @@ function goalOptions(){
 function openAddOverlay(mode, action){
   addMode = mode; addTargetAction = action || null;
   const body = document.getElementById('add-overlay-body');
-  if(mode === 'goal'){
-    document.getElementById('add-overlay-title').textContent = 'Add Goal';
-    body.innerHTML = `
-      <div class="field"><label>Title</label><input type="text" id="f-title" placeholder="Save £15k deposit"></div>
-      <div class="row2">
-        <div class="field"><label>Pillar</label><select id="f-pillar">${pillarOptions()}</select></div>
-        <div class="field"><label>Staircase level</label><select id="f-level">
-          <option>Long-term</option><option>3-year</option><option>1-year</option><option selected>Quarterly</option><option>Monthly</option><option>Weekly</option><option>Daily</option>
-        </select></div>
-      </div>
-      <div class="field"><label>Type</label><select id="f-type" onchange="document.getElementById('numeric-fields').style.display=this.value==='numeric'?'flex':'none'">
-        <option value="numeric">Numeric (target + measurement)</option><option value="binary">Binary (done / not done)</option>
-      </select></div>
-      <div class="row2" id="numeric-fields">
-        <div class="field"><label>Target</label><input type="number" id="f-target"></div>
-        <div class="field"><label>Current</label><input type="number" id="f-current" value="0"></div>
-        <div class="field"><label>Unit</label><input type="text" id="f-unit" placeholder="£ / lb"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Deadline</label><input type="date" id="f-deadline"></div>
-        <div class="field"><label>Long-term note</label><input type="text" id="f-longterm" placeholder="First home & financial security"></div>
-      </div>
-      <div class="field"><label>Part of (parent goal, optional)</label><select id="f-parent"><option value="">— none, this is top-level —</option>${GOALS.map(g=>`<option value="${g.id}">${g.staircase_level} — ${g.title}</option>`).join('')}</select></div>
-      ${ownerPickerHTML(true)}
-      <div class="field"><label><input type="checkbox" id="f-focus"> Mark as current focus (the ONE Thing)</label></div>
-    `;
+  if(mode === 'goal' || mode === 'goal-edit'){
+    const g = mode === 'goal-edit' ? editingGoal : null;
+    document.getElementById('add-overlay-title').textContent = g ? 'Edit Goal' : 'Add Goal';
+    body.innerHTML = goalFormHTML(g);
   } else if(mode === 'habit'){
     document.getElementById('add-overlay-title').textContent = 'Add Habit';
     body.innerHTML = `
@@ -1547,7 +1905,8 @@ function openAddOverlay(mode, action){
   document.getElementById('add-overlay').classList.add('open');
 }
 async function saveAdd(){
-  if(addMode === 'goal'){
+  if(addMode === 'goal' || addMode === 'goal-edit'){
+    const editing = addMode === 'goal-edit' ? editingGoal : null;
     const type = document.getElementById('f-type').value;
     const row = {
       title: document.getElementById('f-title').value.trim(),
@@ -1558,15 +1917,17 @@ async function saveAdd(){
       current: type==='numeric' ? parseFloat(document.getElementById('f-current').value)||0 : null,
       unit: type==='numeric' ? document.getElementById('f-unit').value.trim() : null,
       deadline: document.getElementById('f-deadline').value || null,
+      window_start: document.getElementById('f-start').value || null,
+      plan_status: document.getElementById('f-plan').value,
       longterm_note: document.getElementById('f-longterm').value.trim(),
       is_focus: document.getElementById('f-focus').checked,
-      owner_id: readOwnerField(),
       parent_goal_id: document.getElementById('f-parent').value || null,
-      done: false,
     };
+    if(!editing || currentUserRole === 'admin') row.owner_id = readOwnerField();
+    if(!editing) row.done = false;
     if(!row.title){ showToast('A title is required.'); return; }
     if(row.is_focus){ await supabase.from('goals').update({ is_focus:false }).eq('is_focus', true); }
-    const { error } = await supabase.from('goals').insert(row);
+    const { error } = editing ? await supabase.from('goals').update(row).eq('id', editing.id) : await supabase.from('goals').insert(row);
     if(error){ showToast('Could not save: '+error.message); return; }
   } else if(addMode === 'habit'){
     const row = {
@@ -1664,6 +2025,18 @@ document.addEventListener('click', (e)=>{
   else if(action === 'save-reading-goal') saveReadingGoal(el.dataset.section);
   else if(action === 'goto-goal') gotoGoal(el.dataset.id);
   else if(action === 'quick-add-weekly-action') quickAddWeeklyAction(el.dataset.goal, el.dataset.pillar);
+  else if(action === 'toggle-notes'){ if(state.notesOpen.has(el.dataset.id)) state.notesOpen.delete(el.dataset.id); else state.notesOpen.add(el.dataset.id); renderActive(); }
+  else if(action === 'add-note') addNote(el.dataset.id);
+  else if(action === 'edit-goal') openEditGoal(el.dataset.id, false);
+  else if(action === 'lock-goal') openEditGoal(el.dataset.id, true);
+  else if(action === 'archive-goal') openArchive(el.dataset.id);
+  else if(action === 'do-archive') doArchive(el.dataset.mode);
+  else if(action === 'close-archive') document.getElementById('archive-overlay').classList.remove('open');
+  else if(action === 'restore-goal') restoreGoal(el.dataset.id);
+  else if(action === 'open-wizard') startWizard();
+  else if(action === 'wiz-close') wizClose();
+  else if(action === 'wiz-skip') wizAdvance(false);
+  else if(action === 'wiz-next') wizAdvance(true);
   else if(action === 'toggle-chapter-pages') toggleChapterPages(el.dataset.id);
   else if(action === 'set-imp-source'){ state.impSource = el.dataset.source; renderImpressionsPanel(); }
   else if(action === 'filter-imp-label'){ state.impLabelFilter = el.dataset.label || null; renderImpressionsPanel(); }
