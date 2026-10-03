@@ -808,7 +808,7 @@ function ancestorsOf(g){
 function sectionItemIds(section){ return section === 'whitebooks' ? WHITE_BOOKS.map(w=>w.id) : PROJECTS.filter(p=>p.section===section).map(p=>p.id); }
 function pagesLoggedOn(section, date){
   const ids = sectionItemIds(section); const wb = section === 'whitebooks';
-  return PROGRESS.filter(p=> p.entry_date === date && ids.includes(wb ? p.linked_white_book_id : p.linked_project_id)).reduce((s, p)=> s + p.pages_read, 0);
+  return PROGRESS.filter(p=> !p.opening_balance && p.entry_date === date && ids.includes(wb ? p.linked_white_book_id : p.linked_project_id)).reduce((s, p)=> s + p.pages_read, 0);
 }
 function mineOk(o){ return !o || o === currentUserId; }
 function weekObjectives(offset, ok){
@@ -1472,6 +1472,8 @@ function renderReadingBody(){
         <input type="text" id="pr-title" placeholder="Title" style="flex:1; min-width:140px;">
         <input type="text" id="pr-author" placeholder="Author (optional)" style="flex:1; min-width:120px;">
         <input type="text" id="pr-volume" placeholder="Volume (optional)" style="max-width:130px;">
+        <input type="text" id="pr-source" placeholder="Source, e.g. recording (optional)" style="flex:1; min-width:150px;">
+        <input type="text" id="pr-piece" placeholder="Date of piece, e.g. 1990-08 (optional)" style="flex:1; min-width:150px;">
         <input type="number" id="pr-chapters" placeholder="Chapters" style="max-width:90px;">
         <input type="number" id="pr-pages" placeholder="Pages/ch (est.)" style="max-width:110px;">
         <input type="date" id="pr-start">
@@ -1554,7 +1556,7 @@ function readingProjectionHTML(section, goal){
   const sectionItemIds = kind==='whitebook' ? WHITE_BOOKS.map(w=>w.id) : PROJECTS.filter(p=>p.section===section).map(p=>p.id);
   const sinceStart = PROGRESS.filter(p=>{
     const linkedId = kind==='whitebook' ? p.linked_white_book_id : p.linked_project_id;
-    return sectionItemIds.includes(linkedId) && new Date(p.entry_date) >= new Date(goal.start_date);
+    return !p.opening_balance && sectionItemIds.includes(linkedId) && new Date(p.entry_date) >= new Date(goal.start_date);
   });
   const totalLogged = sinceStart.reduce((s,p)=>s+p.pages_read,0);
   const elapsedDays = Math.max(1, Math.round((new Date()-new Date(goal.start_date))/86400000)+1);
@@ -1598,11 +1600,13 @@ function rlistTileHTML(kind, item, section){
     ? `<span class="qchip queued" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q·${qNum}</span><span class="qchip-remove" data-action="remove-queue" data-kind="${kind}" data-id="${item.id}">✕</span>`
     : `<span class="qchip" data-action="cycle-queue" data-kind="${kind}" data-id="${item.id}">Q</span>`;
   let sub;
-  if(kind==='whitebook') sub = `${item.pages||'?'} pages`;
+  if(kind==='whitebook'){ const read = PROGRESS.filter(p=>p.linked_white_book_id===item.id).reduce((n, p)=>n + p.pages_read, 0); sub = `${read}/${item.pages||'?'} pages${item.notes ? ' · ' + item.notes : ''}`; }
   else {
     const chapters = CHAPTERS.filter(c=>c.project_id===item.id);
     const done = chapters.filter(c=>c.done).length;
-    sub = `${item.author ? item.author + ' · ' : ''}${done}/${item.total_chapters} chapters`;
+    const readPg = PROGRESS.filter(p=>p.linked_project_id===item.id).reduce((n, p)=>n + p.pages_read, 0);
+    const totPg = totalPagesFor('project', item);
+    sub = `${item.author ? item.author + ' · ' : ''}${done}/${item.total_chapters} chapters${readPg ? ' · ' + readPg + (totPg ? '/' + totPg : '') + ' pages' : ''}`;
   }
   return `<div class="rlist-tile" data-action="open-focused" data-kind="${kind}" data-id="${item.id}">
     <button class="star-btn ${item.is_current?'active':''}" data-action="set-current" data-kind="${kind}" data-id="${item.id}" data-section="${section||''}" title="Set as current">${item.is_current?'★':'☆'}</button>
@@ -1631,7 +1635,7 @@ async function addProject(section){
   const title = document.getElementById('pr-title').value.trim();
   const totalChapters = parseInt(document.getElementById('pr-chapters').value);
   if(!title || !totalChapters){ showToast('Title and chapter count are required.'); return; }
-  const row = { section, title, author: document.getElementById('pr-author').value.trim() || null, volume: document.getElementById('pr-volume').value.trim() || null, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
+  const row = { section, title, author: document.getElementById('pr-author').value.trim() || null, volume: document.getElementById('pr-volume').value.trim() || null, source: document.getElementById('pr-source').value.trim() || null, piece_date: document.getElementById('pr-piece').value.trim() || null, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
   const { data, error } = await supabase.from('reading_projects').insert(row).select();
   if(error){ showToast('Could not save: '+error.message); return; }
   const project = data[0];
@@ -1771,7 +1775,7 @@ function renderFocusedReading(body){
     <div class="focused-reading" id="focused-reading-wrap">
       <div class="focused-center" id="focused-center">
         <h2 class="pagetitle" style="font-size:20px;">${itemTitle(kind,item)}</h2>
-        <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages · received '+(item.date_received||'—') : (item.author ? 'by '+item.author+' · ' : '')+item.total_chapters+' chapters · started '+(item.start_date||'—')}</p>
+        <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages'+(item.date_received ? ' · received '+item.date_received : '')+(item.notes ? ' · '+item.notes : '') : (item.author ? 'by '+item.author+' · ' : '')+(item.piece_date ? item.piece_date+' · ' : '')+(item.source ? item.source+' · ' : '')+item.total_chapters+' chapter'+(item.total_chapters===1?'':'s')+(item.start_date ? ' · started '+item.start_date : '')+(item.notes ? ' · '+item.notes : '')}</p>
         ${chaptersHTML}
         <button class="btn small primary" style="margin-top:10px;" data-action="${kind==='whitebook'?'complete-white-book':'complete-project'}" data-id="${item.id}">Mark complete</button>
 
@@ -1784,7 +1788,7 @@ function renderFocusedReading(body){
             <button class="btn small primary" data-action="submit-progress">Log</button>
           </div>
           <div style="margin-top:12px;">
-            ${linkedProgress.length ? linkedProgress.map(p=>`<div class="progress-row"><span>${new Date(p.entry_date).toLocaleDateString()}</span><span>${p.pages_read} pages</span></div>`).join('') : '<div class="rlist-empty">No progress logged yet — this is where your daily page count will show up.</div>'}
+            ${linkedProgress.length ? linkedProgress.map(p=>`<div class="progress-row"><span>${p.opening_balance ? 'Read before the portal' : new Date(p.entry_date).toLocaleDateString()}</span><span>${p.pages_read} pages</span></div>`).join('') : '<div class="rlist-empty">No progress logged yet — this is where your daily page count will show up.</div>'}
           </div>
         </div>
 
