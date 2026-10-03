@@ -182,6 +182,19 @@
   .tag.ready{background:#DDF1E4; color:#1F8F53;}
   .tag.behind{background:#FDECEA; color:#B4442E;}
   .gapline{font-size:11.5px; color:var(--action); margin-top:6px;}
+  .today-item{flex-wrap:wrap;}
+  .plan-banner{background:var(--accent-bg); border:1px solid var(--accent); border-radius:10px; padding:12px 14px; margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; flex-wrap:wrap;}
+  .wk-metrics{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+  .wk-metric{flex:1; min-width:110px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 12px;}
+  .wk-metric .n{font-family:'Fraunces',serif; font-size:20px; font-weight:600;}
+  .wk-metric .l{font-size:11px; color:var(--muted);}
+  .wk-group{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-top:10px;}
+  .wk-chain{font-size:11px; color:var(--muted); margin-top:2px;}
+  .wk-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-top:1px solid var(--border); font-size:13px; flex-wrap:wrap;}
+  .wk-row.done .t{text-decoration:line-through; color:var(--muted);}
+  .behind-card{border-color:#F0C4BC; background:#FDF6F4;}
+  .day.future{opacity:0.35; pointer-events:none;}
+  select.pin{font-size:11px; padding:3px 4px; width:auto; max-width:92px;}
   .fivep-entry .owner-dot{margin-top:1px; flex-shrink:0;}
 
   /* Reading Plan two-column layout */
@@ -251,6 +264,7 @@
   <nav class="sidebar">
     <div class="brand"><span class="brand-dot"></span><span class="brand-name">Home Ops Centre</span><button class="collapse-btn" id="collapse-btn" title="Hide menu">⟨</button></div>
     <button class="navitem" data-nav="today">Today</button>
+    <button class="navitem" data-nav="week">This week</button>
     <div class="navgroup-label">VISION &amp; GOALS</div>
     <button class="navitem" data-nav="vision">Vision</button>
     <button class="navitem" data-nav="balance">Balance Map</button>
@@ -279,6 +293,22 @@
       <div id="today-items"></div>
       <div class="section-label">Current focus</div>
       <div id="today-focus"></div>
+    </section>
+
+    <section class="panel" id="panel-week">
+      <div class="headrow">
+        <div><div class="eyebrow">Weekly view</div><h1 class="pagetitle" id="week-title">This week</h1></div>
+        <div class="view-toggle" id="week-view-toggle"><button data-view="mine" class="active">Mine</button><button data-view="all">All</button></div>
+      </div>
+      <p class="subtitle">What do you need to progress this week? Objectives are grouped by the goal they feed.</p>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <button class="btn small" data-action="week-step" data-delta="-1">‹</button>
+        <span id="week-range" style="font-size:13px; font-weight:600;"></span>
+        <button class="btn small" data-action="week-step" data-delta="1">›</button>
+        <button class="btn small" data-action="week-step" data-delta="0">This week</button>
+        <button class="btn small primary" id="plan-week-btn" data-action="plan-week" data-offset="0">Plan week</button>
+      </div>
+      <div id="week-body"></div>
     </section>
 
     <section class="panel" id="panel-vision">
@@ -423,6 +453,22 @@
   </div>
 </div>
 
+<div class="overlay" id="msg-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;" id="msg-title"></h2></div>
+    <div id="msg-body"></div>
+    <div class="overlay-foot" id="msg-foot"></div>
+  </div>
+</div>
+
+<div class="overlay" id="plan-overlay">
+  <div class="overlay-card">
+    <div class="overlay-head"><h2 class="pagetitle" style="font-size:19px;" id="plan-title">Plan week</h2><button class="btn small" data-action="plan-close">Close</button></div>
+    <div id="plan-body"></div>
+    <div class="overlay-foot"><button class="btn" data-action="plan-close">Cancel</button><button class="btn primary" data-action="plan-save">Save objectives</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -491,7 +537,7 @@ let ALL_GOALS = [], ARCHIVED_GOALS = [], ACTIONS_ALL = [], SCRATCH = [];
 let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [], PROGRESS = [], READING_GOALS = [];
 let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let VISION_ENTRIES = [];
-let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {}, notesOpen: new Set() };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {}, notesOpen: new Set(), weekOffset: 0, weekView: 'mine', todayAll: false, planPrompted: new Set(), planOffset: 1 };
 
 let currentUserRole = 'admin';
 async function boot(){
@@ -597,7 +643,7 @@ function showPanel(name, pillarId){
 function renderActive(){
   ({ today: renderToday, vision: renderVision, balance: renderBalance, goals: renderGoalsFlat,
      habits: renderHabitsFlat, actions: renderActionsFlat, pillar: renderPillar,
-     reading: renderReadingPanel, impressions: renderImpressionsPanel, fivepoint: renderFivePoint })[state.panel]?.();
+     reading: renderReadingPanel, impressions: renderImpressionsPanel, fivepoint: renderFivePoint, week: renderWeek })[state.panel]?.();
 }
 
 // ---------------- GOAL CARD ----------------
@@ -747,19 +793,284 @@ function goalCardHTML_old(g, showPillarTag){
 }
 
 // ---------------- TODAY ----------------
-function renderToday(){
-  document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'long' });
-  const due = ACTIONS.filter(a=> a.status==='due' && (!a.due_date || a.due_date <= todayStr()));
-  const today = todayStr();
-  const unmarked = HABITS.filter(h=> !HABIT_LOGS.find(l=> l.habit_id===h.id && l.log_date===today));
+// ---------------- WEEK / TODAY HELPERS ----------------
+const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SECTION_LABELS = { whitebooks: 'White Books', ministry: 'Ministry', other: 'Other' };
+const TODAY_HANDFUL = 5;
+function parseDate(s){ const p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function weekDates(start){ const b = parseDate(start); const out = []; for(let i = 0; i < 7; i++) out.push(fmtLocal(new Date(b.getFullYear(), b.getMonth(), b.getDate() + i))); return out; }
+function fmtShort(s){ return parseDate(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); }
+function ancestorsOf(g){
+  const out = []; const seen = new Set(); let cur = g;
+  while(cur && cur.parent_goal_id && !seen.has(cur.id)){ seen.add(cur.id); cur = GOALS.find(x=>x.id===cur.parent_goal_id); if(cur) out.unshift(cur); }
+  return out;
+}
+function sectionItemIds(section){ return section === 'whitebooks' ? WHITE_BOOKS.map(w=>w.id) : PROJECTS.filter(p=>p.section===section).map(p=>p.id); }
+function pagesLoggedOn(section, date){
+  const ids = sectionItemIds(section); const wb = section === 'whitebooks';
+  return PROGRESS.filter(p=> p.entry_date === date && ids.includes(wb ? p.linked_white_book_id : p.linked_project_id)).reduce((s, p)=> s + p.pages_read, 0);
+}
+function mineOk(o){ return !o || o === currentUserId; }
+function weekObjectives(offset, ok){
+  const b = weekBounds(offset);
+  return ACTIONS.filter(a=> a.goal_id && ok(a.owner_id) && ((a.due_date && a.due_date >= b.start && a.due_date <= b.end) || (a.pinned_date && a.pinned_date >= b.start && a.pinned_date <= b.end)));
+}
+function planNextNeeded(){
+  const cur = weekObjectives(0, mineOk);
+  if(!cur.length || !cur.every(a=>a.status === 'done')) return false;
+  return weekObjectives(1, mineOk).length === 0;
+}
+function planBannerHTML(){
+  return `<div class="plan-banner"><span>That's every objective for this week done, and nothing is planned for next week yet.</span><button class="btn small primary" data-action="plan-week" data-offset="1">Plan next week</button></div>`;
+}
+function maybePromptPlanNext(){
+  const start = weekBounds(0).start;
+  if(!planNextNeeded() || state.planPrompted.has(start)) return;
+  state.planPrompted.add(start);
+  document.getElementById('msg-title').textContent = 'Week complete';
+  document.getElementById('msg-body').innerHTML = `<p style="font-size:13.5px;">That's every objective for this week done, and nothing is planned for next week yet. Plan it now?</p>`;
+  document.getElementById('msg-foot').innerHTML = `<button class="btn" data-action="msg-close">Not now</button><button class="btn primary" data-action="plan-week" data-offset="1">Plan next week</button>`;
+  document.getElementById('msg-overlay').classList.add('open');
+}
+async function pinAction(id, value){
+  const { error } = await supabase.from('actions').update({ pinned_date: value || null }).eq('id', id);
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  const a = ACTIONS.find(x=>x.id===id); if(a) a.pinned_date = value || null;
+  renderActive();
+}
+
+// ---------------- TODAY ----------------
+function loadSwapped(){ try { return new Set(JSON.parse(localStorage.getItem('hoc-swapped-' + todayStr()) || '[]')); } catch(e){ return new Set(); } }
+function saveSwapped(set){ try { localStorage.setItem('hoc-swapped-' + todayStr(), JSON.stringify([...set])); } catch(e){} }
+function swapItem(key, out){ const set = loadSwapped(); if(out) set.add(key); else set.delete(key); saveSwapped(set); renderToday(); }
+function todayCandidates(){
+  const today = todayStr(); const wk = weekBounds(0);
   const items = [];
-  due.slice(0,3).forEach(a=> items.push({tag:'ACTION', text:a.title, color: pillarOf(a.pillar_id)?.color || '#999'}));
-  unmarked.slice(0,2).forEach(h=> items.push({tag:'HABIT', text:h.name+' — not marked yet', color: pillarOf(h.pillar_id)?.color || '#999'}));
-  document.getElementById('today-items').innerHTML = items.length ? items.map(i=>
-    `<div class="today-item"><span class="dot" style="background:${i.color};"></span><span class="txt">${i.text}</span><span class="tag ${i.tag==='HABIT'?'habit':'action'}">${i.tag}</span></div>`
-  ).join('') : '<p class="empty">Nothing outstanding — add goals, habits or actions to see them here.</p>';
-  const focus = GOALS.find(g=>g.is_focus && g.plan_status!=='sketch');
+  ACTIONS.filter(a=>a.status === 'due' && mineOk(a.owner_id)).forEach(a=>{
+    const pil = pillarOf(a.pillar_id); const color = pil ? pil.color : '#999';
+    const goal = a.goal_id ? GOALS.find(g=>g.id===a.goal_id) : null;
+    let rank = null, meta = '', behind = false;
+    if(a.due_date && a.due_date < today){ const d = Math.floor((new Date(today) - new Date(a.due_date)) / 86400000); rank = -d; meta = 'behind ' + d + ' day' + (d === 1 ? '' : 's'); behind = true; }
+    else if(a.pinned_date === today){ rank = 1; meta = 'pinned to today'; }
+    else if(a.pinned_date && a.pinned_date < today && a.pinned_date >= wk.start){ rank = 2; meta = 'pinned earlier this week'; }
+    else if(a.due_date === today){ rank = 3; meta = 'due today'; }
+    else if(a.goal_id && a.due_date && a.due_date >= wk.start && a.due_date <= wk.end){ rank = 6; meta = 'this week'; }
+    if(rank !== null) items.push({ key: 'a:' + a.id, rank, type: 'action', id: a.id, title: a.title, meta: meta + (goal ? ' · ' + goal.title : ''), color, behind });
+  });
+  HABITS.filter(h=>h.owner_id === currentUserId).forEach(h=>{
+    if(!HABIT_LOGS.find(l=>l.habit_id === h.id && l.log_date === today)){
+      const pil = pillarOf(h.pillar_id);
+      items.push({ key: 'h:' + h.id, rank: 4, type: 'habit', id: h.id, title: h.name, meta: 'habit · not ticked yet', color: pil ? pil.color : '#999' });
+    }
+  });
+  const dow = new Date().getDay();
+  READING_GOALS.forEach(rg=>{
+    if((rg.days_of_week || []).includes(dow)){
+      const logged = pagesLoggedOn(rg.section, today);
+      if(logged < rg.pages_per_day){
+        const left = rg.pages_per_day - logged;
+        items.push({ key: 'r:' + rg.section, rank: 5, type: 'reading', id: rg.section, title: 'Read ' + left + ' more page' + (left === 1 ? '' : 's') + ' (' + SECTION_LABELS[rg.section] + ')', meta: 'target ' + rg.pages_per_day + '/day · ' + logged + ' so far', color: '#2D6A5F' });
+      }
+    }
+  });
+  items.sort((a, b)=> a.rank - b.rank);
+  return items;
+}
+function todayItemHTML(i, swappedOut){
+  const control = i.type === 'action' ? `<button class="btn small primary" data-action="toggle-action" data-id="${i.id}">Done</button>`
+    : i.type === 'habit' ? `<button class="btn small primary" data-action="habit-today" data-id="${i.id}">✓ Done</button>`
+    : `<button class="btn small" data-action="nav-simple" data-target="reading">Open</button>`;
+  const swap = swappedOut ? `<button class="btn small" data-action="unswap" data-key="${i.key}">Bring back</button>` : `<button class="btn small" data-action="swap-item" data-key="${i.key}" title="Swap this out">⇄</button>`;
+  const tag = i.type === 'habit' ? '<span class="tag habit">HABIT</span>' : i.type === 'reading' ? '<span class="tag pillar">READING</span>' : '<span class="tag action">ACTION</span>';
+  return `<div class="today-item" ${swappedOut ? 'style="opacity:0.6;"' : ''}><span class="dot" style="background:${i.color};"></span><div class="txt">${i.title}<div class="habit-sub" ${i.behind ? 'style="color:var(--danger); font-weight:700;"' : ''}>${i.meta}</div></div>${tag}${control}${swap}</div>`;
+}
+function renderToday(){
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const items = todayCandidates();
+  const swapped = loadSwapped();
+  const handful = items.filter(i=>!swapped.has(i.key)).slice(0, TODAY_HANDFUL);
+  const shown = state.todayAll ? items : handful;
+  let html = planNextNeeded() ? planBannerHTML() : '';
+  html += shown.length ? shown.map(i=>todayItemHTML(i, swapped.has(i.key))).join('') : '<p class="empty">Nothing outstanding today. Add goals, habits or actions to see them here.</p>';
+  if(!state.todayAll && items.length > shown.length) html += `<div style="margin-top:10px;"><a href="#" data-action="today-all">See all (${items.length})</a></div>`;
+  if(state.todayAll && items.length > TODAY_HANDFUL) html += `<div style="margin-top:10px;"><a href="#" data-action="today-less">Show fewer</a></div>`;
+  document.getElementById('today-items').innerHTML = html;
+  const focus = GOALS.find(g=>g.is_focus && g.plan_status !== 'sketch');
   document.getElementById('today-focus').innerHTML = focus ? goalCardHTML(focus, true) : '<p class="empty">No current focus goal set yet.</p>';
+}
+async function markHabitToday(habitId){
+  const date = todayStr();
+  const { data, error } = await supabase.from('habit_logs').upsert({ habit_id: habitId, log_date: date, state: 'g' }, { onConflict: 'habit_id,log_date' }).select();
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  HABIT_LOGS = HABIT_LOGS.filter(l=> !(l.habit_id === habitId && l.log_date === date));
+  if(data && data[0]) HABIT_LOGS.push(data[0]);
+  renderActive();
+}
+
+// ---------------- WEEKLY VIEW ----------------
+function weekObjectiveRowHTML(a, dates, showOwner){
+  const done = a.status === 'done';
+  const pinOpts = '<option value="">Any day</option>' + dates.map((d, i)=>`<option value="${d}" ${a.pinned_date === d ? 'selected' : ''}>${DAY_NAMES[i]} ${d.slice(8)}</option>`).join('');
+  const control = a.logs_value
+    ? (done ? '<span class="tag habit">LOGGED</span>' : `<button class="btn small" data-action="log-action" data-id="${a.id}">Log</button>`)
+    : `<button class="btn small ${done ? '' : 'primary'}" data-action="toggle-action" data-id="${a.id}">${done ? 'Undo' : 'Done'}</button>`;
+  return `<div class="wk-row ${done ? 'done' : ''}"><div class="t" style="flex:1; min-width:140px;">${a.title}${showOwner && a.owner_id ? ' ' + ownerDotHTML(a.owner_id) : ''}</div>
+    <select class="pin" data-change="pin-action" data-id="${a.id}" title="Pin to a day">${pinOpts}</select>${control}</div>`;
+}
+function behindRowHTML(a){
+  const g = a.goal_id ? GOALS.find(x=>x.id===a.goal_id) : null;
+  const d = Math.floor((new Date(todayStr()) - new Date(a.due_date)) / 86400000);
+  const control = a.logs_value ? `<button class="btn small" data-action="log-action" data-id="${a.id}">Log</button>` : `<button class="btn small primary" data-action="toggle-action" data-id="${a.id}">Done</button>`;
+  return `<div class="wk-row"><div class="t" style="flex:1; min-width:140px;">${a.title}<div class="wk-chain">${g ? esc(g.title) + ' · ' : ''}<span style="color:var(--danger); font-weight:700;">behind ${d} day${d === 1 ? '' : 's'}</span></div></div>${control}</div>`;
+}
+function weekHabitRowHTML(h, dates, today, showOwner){
+  const cells = dates.map((d, i)=>{
+    const log = HABIT_LOGS.find(l=>l.habit_id === h.id && l.log_date === d);
+    const st = log ? log.state : '';
+    const label = st === 'g' ? '✓' : st === 'r' ? '✕' : st === 'x' ? '–' : DAY_NAMES[i][0];
+    const future = d > today;
+    return `<div class="day ${future ? 'future' : ''}" data-s="${st}" ${future ? '' : `data-action="cycle-day" data-id="${h.id}" data-date="${d}" data-state="${st}"`} title="${d}">${label}</div>`;
+  }).join('');
+  return `<div class="habit-row"><div><div class="habit-name">${h.name}</div><div class="habit-sub">${h.cadence}${showOwner ? ' · ' + habitOwnerBadgeHTML(h.owner_id) : ''}</div></div><div class="days">${cells}</div></div>`;
+}
+function renderWeek(){
+  const off = state.weekOffset;
+  const b = weekBounds(off); const start = b.start, end = b.end;
+  const dates = weekDates(start);
+  const today = todayStr();
+  const mine = state.weekView === 'mine';
+  const ok = (o) => !mine || mineOk(o);
+  const showOwner = !mine;
+  document.getElementById('week-title').textContent = off === 0 ? 'This week' : off === 1 ? 'Next week' : off === -1 ? 'Last week' : 'Week of ' + fmtShort(start);
+  document.getElementById('week-range').textContent = fmtShort(start) + ' – ' + fmtShort(end);
+  const planBtn = document.getElementById('plan-week-btn');
+  planBtn.dataset.offset = String(off);
+  planBtn.textContent = off === 1 ? 'Plan next week' : off === 0 ? 'Plan this week' : 'Plan week';
+  const parts = [];
+  if(off === 0 && planNextNeeded()) parts.push(planBannerHTML());
+  const objs = weekObjectives(off, ok);
+  const behindActs = ACTIONS.filter(a=>a.status === 'due' && a.due_date && a.due_date < today && ok(a.owner_id)).sort((x, y)=> x.due_date.localeCompare(y.due_date));
+
+  if(off === 0){
+    const doneN = objs.filter(a=>a.status === 'done').length;
+    const behindGoals = GOALS.filter(g=> daysBehind(g) > 0 && ok(g.owner_id)).length;
+    const behindN = behindActs.length + behindGoals;
+    let good = 0, marked = 0;
+    HABITS.filter(h=> mine ? h.owner_id === currentUserId : true).forEach(h=>{
+      dates.filter(d=>d <= today).forEach(d=>{ const l = HABIT_LOGS.find(x=>x.habit_id === h.id && x.log_date === d); if(l){ marked++; if(l.state === 'g') good++; } });
+    });
+    parts.push(`<div class="wk-metrics">
+      <div class="wk-metric"><div class="n">${doneN}/${objs.length}</div><div class="l">objectives done</div></div>
+      <div class="wk-metric"><div class="n" ${behindN ? 'style="color:var(--danger);"' : ''}>${behindN}</div><div class="l">behind (actions + goals)</div></div>
+      <div class="wk-metric"><div class="n">${marked ? Math.round(good / marked * 100) + '%' : '—'}</div><div class="l">habits ticked this week</div></div>
+    </div>`);
+  }
+
+  if(behindActs.length){
+    parts.push(`<div class="wk-group behind-card"><div style="font-weight:700; color:var(--danger); font-size:14px;">Behind (${behindActs.length})</div>${behindActs.map(behindRowHTML).join('')}</div>`);
+  }
+
+  const byGoal = {};
+  objs.forEach(a=>{ (byGoal[a.goal_id] = byGoal[a.goal_id] || []).push(a); });
+  const groups = Object.keys(byGoal).map(gid=>GOALS.find(g=>g.id === gid)).filter(Boolean)
+    .sort((x, y)=> x.title.localeCompare(y.title));
+  parts.push('<div class="section-label">Objectives, by the goal they feed</div>');
+  if(groups.length){
+    groups.forEach(g=>{
+      const list = byGoal[g.id]; const dn = list.filter(a=>a.status === 'done').length;
+      const chain = ancestorsOf(g).map(x=>esc(x.title)).join(' › ');
+      parts.push(`<div class="wk-group"><div class="headrow"><div><div style="font-weight:700; font-size:14px;"><a href="#" data-action="goto-goal" data-id="${g.id}">${g.title}</a> <span class="habit-sub">${dn} of ${list.length} done</span></div>${chain ? `<div class="wk-chain">${chain}</div>` : ''}</div>
+        <button class="btn small" data-action="quick-add-weekly-action" data-goal="${g.id}" data-pillar="${g.pillar_id}" data-offset="${off}">+ Add</button></div>
+        ${list.map(a=>weekObjectiveRowHTML(a, dates, showOwner)).join('')}</div>`);
+    });
+  } else {
+    parts.push('<div class="rlist-empty">Nothing planned for this week yet. Use the plan button above, or add objectives from a goal.</div>');
+  }
+
+  if(off >= 0){
+    const planned = new Set(Object.keys(byGoal));
+    const idle = GOALS.filter(g=> levelTier(g.staircase_level) === 4 && g.plan_status !== 'sketch' && !isComplete(g) && ok(g.owner_id) && !planned.has(g.id));
+    if(idle.length){
+      parts.push(`<div class="section-label">Monthly goals with nothing planned this week</div><div class="card">${idle.map(g=>`<div class="wk-row" style="border-top:none;"><div class="t" style="flex:1;">${g.title}</div><button class="btn small" data-action="quick-add-weekly-action" data-goal="${g.id}" data-pillar="${g.pillar_id}" data-offset="${off}">+ Add objective</button></div>`).join('')}</div>`);
+    }
+  }
+
+  const pinned = objs.filter(a=>a.pinned_date && dates.includes(a.pinned_date));
+  if(pinned.length){
+    parts.push('<div class="section-label">Pinned to days</div><div class="card">' + dates.map((d, i)=>{
+      const list = pinned.filter(a=>a.pinned_date === d);
+      if(!list.length) return '';
+      return `<div class="wk-row" style="border-top:none; align-items:flex-start;"><div style="width:64px; font-weight:700; ${d === today ? 'color:var(--accent);' : ''}">${DAY_NAMES[i]} ${d.slice(8)}</div><div style="flex:1;">${list.map(a=>`<div style="display:flex; justify-content:space-between; align-items:center; padding:2px 0;"><span class="${a.status === 'done' ? 'wk-row done' : ''}" style="border:none; padding:0;"><span class="t">${a.title}</span></span>${a.status === 'done' ? '<span class="tag habit">DONE</span>' : `<button class="btn small" data-action="toggle-action" data-id="${a.id}">Done</button>`}</div>`).join('')}</div></div>`;
+    }).join('') + '</div>');
+  }
+
+  const others = ACTIONS.filter(a=> !a.goal_id && ok(a.owner_id) && a.due_date && a.due_date >= start && a.due_date <= end);
+  if(others.length) parts.push(`<div class="section-label">Other actions due</div><div class="card">${others.map(a=>actionRowHTML(a, true)).join('')}</div>`);
+
+  if(off === 0){
+    const hs = HABITS.filter(h=> mine ? h.owner_id === currentUserId : true);
+    parts.push(`<div class="section-label">Habits this week</div><div class="card">${hs.length ? hs.map(h=>weekHabitRowHTML(h, dates, today, showOwner)).join('') : '<p class="empty">No habits yet.</p>'}</div>`);
+    const dow = new Date().getDay();
+    const rg = READING_GOALS.filter(r=>(r.days_of_week || []).includes(dow));
+    if(rg.length){
+      parts.push(`<div class="section-label">Today's reading target</div><div class="card">${rg.map(r=>{ const logged = pagesLoggedOn(r.section, today); return `<div class="wk-row" style="border-top:none;"><div class="t" style="flex:1;">${SECTION_LABELS[r.section]}: ${r.pages_per_day} pages today <span class="habit-sub">· ${logged} logged</span></div><button class="btn small" data-action="nav-simple" data-target="reading">Open</button></div>`; }).join('')}</div>`);
+    }
+  }
+
+  parts.push('<div class="section-label">Calendar</div><div class="rlist-empty">Events will appear here once Google Calendar is connected (a later phase).</div>');
+
+  const weekNotes = SCRATCH.filter(n=>!n.goal_id && n.week_start === start);
+  parts.push(`<div class="section-label">Scratch pad for this week</div><div class="card">${weekNotes.map(n=>`<div class="imp-entry" style="padding:6px 0;"><div class="imp-meta">${n.created_by ? ownerDotHTML(n.created_by) : ''}<span>${new Date(n.created_at).toLocaleDateString()}</span></div><div style="font-size:13px; white-space:pre-wrap;">${n.content}</div></div>`).join('')}
+    <textarea id="week-note-input" placeholder="Anything worth noting about this week, or the next goal" style="margin-top:6px; min-height:56px;"></textarea>
+    <button class="btn small primary" style="margin-top:6px;" data-action="add-week-note">Add note</button></div>`);
+
+  document.getElementById('week-body').innerHTML = parts.join('');
+}
+async function addWeekNote(){
+  const el = document.getElementById('week-note-input');
+  const content = el ? el.value.trim() : '';
+  if(!content) return;
+  const start = weekBounds(state.weekOffset).start;
+  const { error } = await supabase.from('scratch_notes').insert({ goal_id: null, week_start: start, content, created_by: currentUserId });
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  await loadAll(); renderActive();
+}
+
+// ---- Plan a week ----
+function openPlanWeek(offset){
+  document.getElementById('msg-overlay').classList.remove('open');
+  const start = weekBounds(offset).start;
+  const dates = weekDates(start);
+  const candidates = GOALS.filter(g=>g.plan_status !== 'sketch' && !isComplete(g))
+    .sort((a, c)=> levelTier(c.staircase_level) - levelTier(a.staircase_level) || a.title.localeCompare(c.title));
+  if(!candidates.length){ showToast('Add a goal first (try the Guided setup on Goals).'); return; }
+  state.planOffset = offset;
+  const prevIds = [...new Set(weekObjectives(offset - 1, ()=>true).map(a=>a.goal_id))].filter(id=>candidates.some(g=>g.id === id)).slice(0, 5);
+  const goalOpts = (sel) => '<option value="">— choose goal —</option>' + candidates.map(g=>`<option value="${g.id}" ${g.id === sel ? 'selected' : ''}>${esc(g.staircase_level)} — ${esc(g.title)}</option>`).join('');
+  const dayOpts = '<option value="">Any day</option>' + dates.map((d, i)=>`<option value="${d}">${DAY_NAMES[i]} ${d.slice(8)}</option>`).join('');
+  document.getElementById('plan-title').textContent = 'Plan week of ' + fmtShort(start);
+  document.getElementById('plan-body').innerHTML = `<p class="subtitle" style="margin:0 0 12px;">What will move your goals forward this week? Leave rows blank to skip them.</p>` +
+    [0, 1, 2, 3, 4].map(i=>`<div class="field" style="border-top:1px solid var(--border); padding-top:10px;"><input type="text" id="pw-title-${i}" placeholder="Objective ${i + 1}"><div class="row2" style="margin-top:6px;"><select id="pw-goal-${i}">${goalOpts(prevIds[i])}</select><select id="pw-day-${i}">${dayOpts}</select></div></div>`).join('');
+  document.getElementById('plan-overlay').classList.add('open');
+}
+async function savePlanWeek(){
+  const end = weekBounds(state.planOffset).end;
+  const rows = [];
+  for(let i = 0; i < 5; i++){
+    const title = document.getElementById('pw-title-' + i).value.trim();
+    if(!title) continue;
+    const gid = document.getElementById('pw-goal-' + i).value;
+    if(!gid){ showToast('Choose which goal "' + title + '" feeds.'); return; }
+    const g = GOALS.find(x=>x.id === gid);
+    rows.push({ title, pillar_id: g.pillar_id, goal_id: gid, due_date: end, pinned_date: document.getElementById('pw-day-' + i).value || null, owner_id: g.owner_id || null, status: 'due', recurring: false, logs_value: false });
+  }
+  if(!rows.length){ showToast('Add at least one objective.'); return; }
+  const { error } = await supabase.from('actions').insert(rows);
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  document.getElementById('plan-overlay').classList.remove('open');
+  state.weekOffset = state.planOffset;
+  await loadAll(); showPanel('week');
+  showToast('Week planned.');
 }
 
 // ---------------- VISION ----------------
@@ -1049,9 +1360,9 @@ function gotoGoal(id){
     if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.outline='2px solid var(--accent)'; setTimeout(()=>{ el.style.outline=''; }, 1500); }
   }, 60);
 }
-function quickAddWeeklyAction(goalId, pillarId){
+function quickAddWeeklyAction(goalId, pillarId, offset){
   openAddOverlay('action');
-  const { end } = weekBounds(0);
+  const { end } = weekBounds(offset || 0);
   document.getElementById('f-pillar').value = pillarId;
   document.getElementById('f-goal').value = goalId;
   document.getElementById('f-due').value = end;
@@ -1081,6 +1392,7 @@ async function toggleAction(id){
   const { error } = await supabase.from('actions').update({ status: next }).eq('id', id);
   if(error){ showToast('Update failed: '+error.message); return; }
   a.status = next; renderActive();
+  if(next === 'done') maybePromptPlanNext();
 }
 function logAction(id){
   const a = ACTIONS.find(x=>x.id===id);
@@ -1886,6 +2198,7 @@ function openAddOverlay(mode, action){
         <div class="field"><label><input type="checkbox" id="f-recurring"> Recurring</label><input type="text" id="f-cadence" placeholder="Weekly · Fri"></div>
         <div class="field"><label>Due date</label><input type="date" id="f-due"></div>
       </div>
+      <div class="field"><label>Pin to a day (optional)</label><input type="date" id="f-pin"></div>
       <div class="field"><label><input type="checkbox" id="f-logs" onchange="document.getElementById('value-type-field').style.display=this.checked?'flex':'none'"> Logs a value</label></div>
       <div class="row2" id="value-type-field" style="display:none;">
         <div class="field"><label>Value type</label><select id="f-valuetype"><option value="number">Number</option><option value="yesno">Yes/No</option></select></div>
@@ -1949,6 +2262,7 @@ async function saveAdd(){
       recurring: document.getElementById('f-recurring').checked,
       cadence: document.getElementById('f-cadence').value.trim() || null,
       due_date: document.getElementById('f-due').value || null,
+      pinned_date: document.getElementById('f-pin').value || null,
       logs_value: logsValue,
       value_type: logsValue ? document.getElementById('f-valuetype').value : null,
       unit: logsValue ? document.getElementById('f-unit').value.trim() : null,
@@ -2024,7 +2338,7 @@ document.addEventListener('click', (e)=>{
   else if(action === 'toggle-goal-day') toggleGoalDay(el.dataset.section, parseInt(el.dataset.day));
   else if(action === 'save-reading-goal') saveReadingGoal(el.dataset.section);
   else if(action === 'goto-goal') gotoGoal(el.dataset.id);
-  else if(action === 'quick-add-weekly-action') quickAddWeeklyAction(el.dataset.goal, el.dataset.pillar);
+  else if(action === 'quick-add-weekly-action') quickAddWeeklyAction(el.dataset.goal, el.dataset.pillar, parseInt(el.dataset.offset) || 0);
   else if(action === 'toggle-notes'){ if(state.notesOpen.has(el.dataset.id)) state.notesOpen.delete(el.dataset.id); else state.notesOpen.add(el.dataset.id); renderActive(); }
   else if(action === 'add-note') addNote(el.dataset.id);
   else if(action === 'edit-goal') openEditGoal(el.dataset.id, false);
@@ -2037,6 +2351,17 @@ document.addEventListener('click', (e)=>{
   else if(action === 'wiz-close') wizClose();
   else if(action === 'wiz-skip') wizAdvance(false);
   else if(action === 'wiz-next') wizAdvance(true);
+  else if(action === 'week-step'){ const d = parseInt(el.dataset.delta); state.weekOffset = d === 0 ? 0 : state.weekOffset + d; renderWeek(); }
+  else if(action === 'plan-week') openPlanWeek(parseInt(el.dataset.offset));
+  else if(action === 'plan-close') document.getElementById('plan-overlay').classList.remove('open');
+  else if(action === 'plan-save') savePlanWeek();
+  else if(action === 'msg-close') document.getElementById('msg-overlay').classList.remove('open');
+  else if(action === 'add-week-note') addWeekNote();
+  else if(action === 'swap-item') swapItem(el.dataset.key, true);
+  else if(action === 'unswap') swapItem(el.dataset.key, false);
+  else if(action === 'today-all'){ state.todayAll = true; renderToday(); }
+  else if(action === 'today-less'){ state.todayAll = false; renderToday(); }
+  else if(action === 'habit-today') markHabitToday(el.dataset.id);
   else if(action === 'toggle-chapter-pages') toggleChapterPages(el.dataset.id);
   else if(action === 'set-imp-source'){ state.impSource = el.dataset.source; renderImpressionsPanel(); }
   else if(action === 'filter-imp-label'){ state.impLabelFilter = el.dataset.label || null; renderImpressionsPanel(); }
@@ -2053,12 +2378,18 @@ document.addEventListener('click', (e)=>{
   if(el) showPanel('pillar', el.dataset.pillar);
 });
 
+document.addEventListener('change', (e)=>{
+  const el = e.target.closest('[data-change]');
+  if(!el) return;
+  if(el.dataset.change === 'pin-action') pinAction(el.dataset.id, el.value);
+});
+
 document.querySelectorAll('.view-toggle').forEach(group=>{
   group.querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      const map = { 'goals-view-toggle':'goalsView', 'habits-view-toggle':'habitsView', 'actions-view-toggle':'actionsView', 'vision-view-toggle':'visionView', 'fivep-view-toggle':'fivepView' };
+      const map = { 'goals-view-toggle':'goalsView', 'habits-view-toggle':'habitsView', 'actions-view-toggle':'actionsView', 'week-view-toggle':'weekView', 'vision-view-toggle':'visionView', 'fivep-view-toggle':'fivepView' };
       const key = map[group.id];
       if(key){ state[key] = btn.dataset.view; renderActive(); }
     });
