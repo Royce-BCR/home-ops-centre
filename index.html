@@ -141,6 +141,16 @@
   .chapter-grid{display:flex; flex-wrap:wrap; gap:5px; margin:8px 0;}
   .chapter{width:24px; height:24px; border-radius:5px; border:1.5px solid var(--border); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted);}
   .chapter.done{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .chapter.ro{cursor:default;}
+  .issue-chk{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--muted); margin-top:10px; cursor:pointer;}
+  .issue-chk input{width:auto; padding:0; margin:0; accent-color:var(--accent);}
+  .rp-viewrow{margin:12px 0 16px;}
+  .rp-person{margin-top:12px;}
+  .rp-person .ph{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14.5px;}
+  .rp-person .pg{font-size:12.5px; color:var(--muted); margin:6px 0 2px;}
+  .rp-person .rlist-tile{cursor:pointer;}
+  .rp-person .cur{background:var(--accent-bg); border:1px solid var(--accent); border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13px;}
+  .rp-person .cur .lbl{font-size:10px; font-weight:700; color:var(--accent); letter-spacing:0.05em;}
   details.archive{margin-top:12px;}
   details.archive summary{font-size:12px; font-weight:700; color:var(--muted); cursor:pointer; padding:6px 0;}
   .imp-form{display:flex; flex-direction:column; gap:10px;}
@@ -230,8 +240,14 @@
   .current-card{background:var(--accent-bg); border:1px solid var(--accent); border-radius:12px; padding:16px 18px; margin-top:14px; cursor:pointer;}
   .current-card .lbl{font-size:10.5px; font-weight:700; color:var(--accent); letter-spacing:0.05em;}
   .drag-row{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-top:6px; touch-action:none;}
-  .drag-handle{cursor:grab; color:var(--muted); font-size:16px; user-select:none;}
-  .drag-row.dragging{opacity:0.5;}
+  .drag-handle{cursor:grab; color:var(--muted); font-size:22px; line-height:1; user-select:none; -webkit-user-select:none; touch-action:none; min-width:44px; min-height:44px; margin:-12px 0 -12px -12px; display:flex; align-items:center; justify-content:center;}
+  .drag-row.dragging{opacity:0.85; box-shadow:0 8px 22px rgba(0,0,0,0.18); border-color:var(--accent);}
+  .drag-row .dr-t{flex:1; min-width:0;}
+  .drag-row .dr-mv{display:flex; gap:4px;}
+  .drag-row .dr-mv .btn{min-width:36px; padding:6px 0;}
+  .ed-card{margin:10px 0;}
+  .ed-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 10px;}
+  @media (max-width:640px){ .ed-grid{grid-template-columns:1fr;} }
   .focused-reading{display:flex; gap:0; margin-top:14px; align-items:stretch;}
   .focused-center{flex:1; min-width:200px; padding-right:16px;}
   .focused-divider{width:6px; cursor:col-resize; background:var(--border); border-radius:3px; flex-shrink:0; margin:0 6px;}
@@ -778,7 +794,8 @@
     <section class="panel" id="panel-reading">
       <div class="eyebrow">Reading &amp; Reflection · Moral pillar</div>
       <h1 class="pagetitle">Reading Plan</h1>
-      <p class="subtitle">White Books, Ministry, Other, and a Bible placeholder.</p>
+      <p class="subtitle">White Books, Ministry, Other, and a Bible placeholder. Each of you keeps your own list, goal and progress; Everyone shows both.</p>
+      <div class="rp-viewrow"><div class="view-toggle" id="rp-view-toggle"><button data-view="mine" class="active">Mine</button><button data-view="all">Everyone</button></div></div>
       <div class="card">
         <div class="tabs" id="rp-tabs"></div>
         <div id="rp-body"></div>
@@ -788,7 +805,8 @@
     <section class="panel" id="panel-impressions">
       <div class="eyebrow">Reading &amp; Reflection · Moral pillar</div>
       <h1 class="pagetitle">Impressions Log</h1>
-      <p class="subtitle">Log from here directly, or from within a reading session — both land in the same place.</p>
+      <p class="subtitle">Log from here directly, or from within a reading session — both land in the same place. Your impressions are yours; Everyone shows both of yours.</p>
+      <div class="rp-viewrow"><div class="view-toggle" id="imp-view-toggle"><button data-view="mine" class="active">Mine</button><button data-view="all">Everyone</button></div></div>
       <div class="card">
         <div class="imp-form">
           <div class="source-row" id="imp-source-row"></div>
@@ -1297,9 +1315,13 @@ let PILLARS = [], GOALS = [], HABITS = [], HABIT_LOGS = [], ACTIONS = [];
 let ALL_GOALS = [], ARCHIVED_GOALS = [], ACTIONS_ALL = [], SCRATCH = [];
 let MEETINGS = [], MEETING_AGENDAS = [], MEETING_PREPS = [], GOAL_REVIEWS = [], RECEIPTS = [], RECEIPT_ITEMS = [];
 let WHITE_BOOKS = [], PROJECTS = [], CHAPTERS = [], IMPRESSIONS = [], PROGRESS = [], READING_GOALS = [];
+// Reading is kept per person. WHITE_BOOKS / PROJECTS / CHAPTERS / PROGRESS / READING_GOALS hold only the signed-in
+// person's own rows (so Today, Week and Reports are automatically personal); RD_ALL keeps everyone's for the Everyone view.
+let RD_ALL = { wb: [], pr: [], ch: [], prog: [], goals: [] };
+const rdMine = (o) => !o || o === currentUserId;
 let PROFILES = [], RESET_ENTRIES = [], currentUserId = null;
 let VISION_ENTRIES = [];
-let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {}, notesOpen: new Set(), weekOffset: 0, weekView: 'mine', todayAll: false, planPrompted: new Set(), planOffset: 1, goalsLens: 'list', goalsTier: 2, outlineOpen: new Set(), meetingId: null, schedKind: 'weekly', calOffset: 0, finTab: 'budget', finMonthOffset: 0 };
+let state = { pillar: null, panel: 'today', rpTab: 'whitebooks', impSource: 'Reading', goalsView: 'all', habitsView: 'all', actionsView: 'all', visionView: 'all', fivepView: 'all', rpFocus: null, impLabelFilter: null, rpEditOrder: false, rpPagesOpen: new Set(), rpGoalDays: {}, notesOpen: new Set(), weekOffset: 0, weekView: 'mine', todayAll: false, planPrompted: new Set(), planOffset: 1, goalsLens: 'list', goalsTier: 2, outlineOpen: new Set(), meetingId: null, schedKind: 'weekly', calOffset: 0, finTab: 'budget', finMonthOffset: 0, rpView: 'mine', impView: 'mine', rpPeek: null, rpIssueConfirm: false, rpEditing: null };
 
 let currentUserRole = 'admin';
 async function boot(){
@@ -1357,8 +1379,13 @@ async function loadAll(){
     supabase.from('member_access').select('*'),
   ]);
   PILLARS = pillars || []; ALL_GOALS = goals || []; GOALS = ALL_GOALS.filter(g=>!g.archived); ARCHIVED_GOALS = ALL_GOALS.filter(g=>g.archived); HABITS = habits || []; HABIT_LOGS = logs || []; ACTIONS_ALL = actions || []; ACTIONS = ACTIONS_ALL.filter(a=>!a.archived); VISION_ENTRIES = visions || [];
-  WHITE_BOOKS = whiteBooks || []; PROJECTS = projects || []; CHAPTERS = chapters || []; IMPRESSIONS = impressions || [];
-  PROFILES = profs || []; RESET_ENTRIES = resetEntries || []; PROGRESS = progress || []; READING_GOALS = readingGoals || []; SCRATCH = scratch || [];
+  RD_ALL = { wb: whiteBooks || [], pr: projects || [], ch: chapters || [], prog: progress || [], goals: readingGoals || [] };
+  WHITE_BOOKS = RD_ALL.wb.filter(b => rdMine(b.owner_id)); PROJECTS = RD_ALL.pr.filter(p => rdMine(p.owner_id));
+  { const myWb = new Set(WHITE_BOOKS.map(b => b.id)), myPr = new Set(PROJECTS.map(p => p.id));
+    CHAPTERS = RD_ALL.ch.filter(c => myPr.has(c.project_id));
+    PROGRESS = RD_ALL.prog.filter(p => p.linked_white_book_id ? myWb.has(p.linked_white_book_id) : myPr.has(p.linked_project_id)); }
+  IMPRESSIONS = impressions || [];
+  PROFILES = profs || []; RESET_ENTRIES = resetEntries || []; READING_GOALS = RD_ALL.goals.filter(g => rdMine(g.user_id)); SCRATCH = scratch || [];
   MEETINGS = meetings || []; MEETING_AGENDAS = agendas || []; MEETING_PREPS = preps || []; GOAL_REVIEWS = reviews || []; RECEIPTS = receipts || []; RECEIPT_ITEMS = receiptItems || []; SETTINGS = settings || []; applySettings();
   RESOURCES = resources || []; CHK_TEMPLATES = chkTpls || []; CHECKLISTS = chks || []; BRAIN = brain || []; MY_ACCESS = (myAcc && myAcc[0]) ? myAcc[0].sections : null;
   renderSidebarPillars(); applyAccess();
@@ -2262,7 +2289,7 @@ function itemTitle(kind, item){ return kind==='whitebook' ? item.number : (item.
 function sortActive(kind, items){
   const queued = items.filter(i=>i.queue_position!=null).sort((a,b)=>a.queue_position-b.queue_position);
   const rest = items.filter(i=>i.queue_position==null).sort((a,b)=>{
-    if(kind==='whitebook') return (a.number||'').localeCompare(b.number||'');
+    if(kind==='whitebook') return (new Date(b.created_at) - new Date(a.created_at)) || (b.number||'').localeCompare(a.number||'', undefined, { numeric: true });
     return new Date(a.created_at) - new Date(b.created_at);
   });
   return [...queued, ...rest];
@@ -2273,6 +2300,8 @@ function renderReadingBody(){
     body.innerHTML = `<p class="empty">Placeholder section — the Bible reading tracker arrives in a later phase.</p>`;
     return;
   }
+  if(state.rpView !== 'all') state.rpPeek = null;
+  if(state.rpView === 'all'){ renderReadingEveryone(body); return; }
   if(state.rpFocus && state.rpFocus.tab === state.rpTab){
     renderFocusedReading(body);
     return;
@@ -2291,6 +2320,7 @@ function renderReadingBody(){
         <input type="number" id="wb-pages" placeholder="Pages" style="max-width:90px;">
         <button class="btn small primary" data-action="add-white-book">Add</button>
       </div>
+      ${issueCheckHTML('wb-issue')}
     </div>` :
     `<div class="field" style="max-width:460px;"><label>Add a ${section === 'ministry' ? 'Ministry' : 'Other'} reading project</label>
       <div class="addform" style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -2305,6 +2335,7 @@ function renderReadingBody(){
         <input type="date" id="pr-start">
         <button class="btn small primary" data-action="add-project" data-section="${section}">Add</button>
       </div>
+      ${issueCheckHTML('pr-issue')}
     </div>`;
 
   const currentCard = current ? `<div class="current-card" data-action="open-focused" data-kind="${kind}" data-id="${current.id}">
@@ -2315,9 +2346,9 @@ function renderReadingBody(){
   if(state.rpEditOrder){
     const queued = active.filter(i=>i.queue_position!=null);
     rightHTML = `<div class="headrow"><h3 style="font-size:13px;">Edit order</h3><button class="btn small" data-action="toggle-edit-order">Done</button></div>
-      <div id="edit-order-list">${queued.map(i=>`<div class="drag-row" data-id="${i.id}"><span class="drag-handle">⠿</span><span>${itemTitle(kind,i)}</span></div>`).join('') || '<p class="empty">Nothing queued yet — add items to the queue first with the Q button, then reorder here.</p>'}</div>`;
+      <div id="edit-order-list">${queued.map((i, n)=>`<div class="drag-row" data-id="${i.id}"><span class="drag-handle" title="Drag to reorder">⠿</span><span class="dr-t">${esc(itemTitle(kind,i))}</span><span class="dr-mv"><button class="btn small" data-action="move-queue" data-kind="${kind}" data-id="${i.id}" data-dir="-1" ${n === 0 ? 'disabled' : ''} aria-label="Move up">↑</button><button class="btn small" data-action="move-queue" data-kind="${kind}" data-id="${i.id}" data-dir="1" ${n === queued.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button></span></div>`).join('') || '<p class="empty">Nothing queued yet — add items to the queue first with the Q button, then reorder here.</p>'}</div>`;
   } else {
-    rightHTML = `<div class="headrow"><h3 style="font-size:13px;">Reading list</h3><button class="btn small" data-action="toggle-edit-order">Edit Order</button></div>
+    rightHTML = `<div class="headrow"><h3 style="font-size:13px;">Reading list</h3><span>${issueListBtnHTML(active.length)}<button class="btn small" data-action="toggle-edit-order">Edit Order</button></span></div>
       ${active.length ? active.map(i=>rlistTileHTML(kind,i,section)).join('') : Array(3).fill('<div class="rlist-empty">Nothing added yet</div>').join('')}
       <details class="archive"><summary>Archive (${archive.length})</summary>
       ${archive.map(i=> kind==='whitebook'
@@ -2355,7 +2386,7 @@ function readingGoalHTML(section){
       <div class="field"><label>Pages per day</label><input type="number" id="goal-pages" value="${goal?.pages_per_day || (goal ? '' : setting('reading.pages', ''))}" style="max-width:100px;"></div>
       <div class="field"><label>Start date</label><input type="date" id="goal-start" value="${goal?.start_date||todayStr()}"></div>
     </div>
-    <div class="field"><label>Linked habit (optional)</label><select id="goal-habit"><option value="">— none —</option>${HABITS.map(h=>`<option value="${h.id}" ${goal?.linked_habit_id===h.id?'selected':''}>${h.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Linked habit (optional)</label><select id="goal-habit"><option value="">— none —</option>${HABITS.filter(h=>!h.owner_id||h.owner_id===currentUserId).map(h=>`<option value="${h.id}" ${goal?.linked_habit_id===h.id?'selected':''}>${h.name}</option>`).join('')}</select></div>
     <button class="btn small primary" data-action="save-reading-goal" data-section="${section}">Save goal</button>${goal ? ` <button class="btn small danger-outline" data-action="delete" data-kind="readinggoal" data-id="${goal.id}">Remove goal</button>` : ''}
     ${goal ? readingProjectionHTML(section, goal) : '<p class="empty" style="margin-top:8px;">No reading goal set for this tab yet.</p>'}
   </div>`;
@@ -2412,10 +2443,9 @@ async function saveReadingGoal(section){
   const days = state.rpGoalDays[section] || READING_GOALS.find(g=>g.section===section)?.days_of_week || [0,1,2,3,4,5,6];
   if(!pages || pages<=0){ showToast('Enter a positive number of pages per day.'); return; }
   const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase.from('reading_goals').upsert(
-    { section, pages_per_day: pages, days_of_week: days, start_date: start, linked_habit_id: habitId, updated_at: new Date().toISOString(), updated_by: user?.id },
-    { onConflict: 'section' }
-  );
+  const payload = { section, pages_per_day: pages, days_of_week: days, start_date: start, linked_habit_id: habitId, updated_at: new Date().toISOString(), updated_by: user?.id, user_id: user?.id };
+  const mineGoal = READING_GOALS.find(g => g.section === section);
+  const { error } = mineGoal ? await supabase.from('reading_goals').update(payload).eq('id', mineGoal.id) : await supabase.from('reading_goals').insert(payload);
   if(error){ showToast('Could not save: '+error.message); return; }
   delete state.rpGoalDays[section];
   await loadAll();
@@ -2446,10 +2476,14 @@ function rlistTileHTML(kind, item, section){
 async function addWhiteBook(){
   const number = document.getElementById('wb-number').value.trim();
   if(!number){ showToast('A number is required.'); return; }
-  const row = { number, date_received: document.getElementById('wb-received').value || null, pages: parseInt(document.getElementById('wb-pages').value)||null };
-  const { error } = await supabase.from('reading_white_books').insert(row);
+  const row = { number, date_received: document.getElementById('wb-received').value || null, pages: parseInt(document.getElementById('wb-pages').value)||null, owner_id: currentUserId };
+  const issue = !!(document.getElementById('wb-issue') || {}).checked;
+  const { data: ins, error } = await supabase.from('reading_white_books').insert(row).select();
   if(error){ showToast('Could not save: '+error.message); return; }
-  await loadAll(); renderReadingPanel();
+  let msg = '';
+  if(ins && ins[0]) await placeAtTop('reading_white_books', ins[0].id, WHITE_BOOKS.filter(b => !b.completed && b.queue_position != null));
+  if(issue && ins && ins[0]){ const n = await issueItems('whitebook', [ins[0]], true); msg = n ? 'Added, and issued to ' + issuedNames() + '.' : ''; }
+  await loadAll(); renderReadingPanel(); if(msg) showToast(msg);
 }
 async function completeWhiteBook(id){
   await supabase.from('reading_white_books').update({ completed: true, completed_date: todayStr(), is_current: false }).eq('id', id);
@@ -2463,13 +2497,16 @@ async function addProject(section){
   const title = document.getElementById('pr-title').value.trim();
   const totalChapters = parseInt(document.getElementById('pr-chapters').value);
   if(!title || !totalChapters){ showToast('Title and chapter count are required.'); return; }
-  const row = { section, title, author: document.getElementById('pr-author').value.trim() || null, volume: document.getElementById('pr-volume').value.trim() || null, source: document.getElementById('pr-source').value.trim() || null, piece_date: document.getElementById('pr-piece').value.trim() || null, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null };
+  const row = { section, title, author: document.getElementById('pr-author').value.trim() || null, volume: document.getElementById('pr-volume').value.trim() || null, source: document.getElementById('pr-source').value.trim() || null, piece_date: document.getElementById('pr-piece').value.trim() || null, total_chapters: totalChapters, pages_per_chapter: parseInt(document.getElementById('pr-pages').value)||null, start_date: document.getElementById('pr-start').value || null, owner_id: currentUserId };
+  const issue = !!(document.getElementById('pr-issue') || {}).checked;
   const { data, error } = await supabase.from('reading_projects').insert(row).select();
   if(error){ showToast('Could not save: '+error.message); return; }
   const project = data[0];
   const chapterRows = Array.from({length: totalChapters}, (_,i)=>({ project_id: project.id, chapter_number: i+1 }));
   await supabase.from('reading_project_chapters').insert(chapterRows);
-  await loadAll(); renderReadingPanel();
+  let msg = '';
+  if(issue){ RD_ALL.ch = RD_ALL.ch.concat(chapterRows); const n = await issueItems('project', [project]); msg = n ? 'Added, and issued to ' + issuedNames() + '.' : ''; }
+  await loadAll(); renderReadingPanel(); if(msg) showToast(msg);
 }
 async function toggleChapter(id){
   const c = CHAPTERS.find(x=>x.id===id);
@@ -2529,45 +2566,112 @@ async function saveChapterPages(chapterId, value){
   const c = CHAPTERS.find(x=>x.id===chapterId); if(c) c.pages = pages;
 }
 
+// ---- Edit an item after adding it ----
+function rdCopiesOf(kind, item){
+  return (kind === 'whitebook' ? RD_ALL.wb : RD_ALL.pr).filter(x => x.owner_id && x.owner_id !== currentUserId && x.id !== item.id && rdSame(kind, x, item));
+}
+function editFormHTML(kind, item){
+  const f = (id, label, val, type, extra) => `<div class="field"><label>${label}</label><input type="${type || 'text'}" id="${id}" value="${esc(val == null ? '' : val)}" ${extra || ''}></div>`;
+  const copies = rdCopiesOf(kind, item);
+  const names = [...new Set(copies.map(c => (profileOf(c.owner_id) || {}).display_name).filter(Boolean))];
+  const alsoBox = copies.length ? `<label class="issue-chk"><input type="checkbox" id="ed-others"> Also fix ${esc(names.join(' and '))}'s copy</label>` : '';
+  const fields = kind === 'whitebook'
+    ? `<div class="ed-grid">${f('ed-number', 'Number', item.number)}${f('ed-pages', 'Pages', item.pages, 'number')}${f('ed-received', 'Date received', item.date_received, 'date')}${f('ed-notes', 'Notes', item.notes)}</div>`
+    : `<div class="ed-grid">${f('ed-title', 'Title', item.title)}${f('ed-author', 'Author', item.author)}${f('ed-volume', 'Volume', item.volume)}${f('ed-source', 'Source', item.source)}${f('ed-piece', 'Date of piece', item.piece_date)}${f('ed-chapters', 'Chapters', item.total_chapters, 'number', 'min="1"')}${f('ed-ppc', 'Pages per chapter (est.)', item.pages_per_chapter, 'number')}${f('ed-start', 'Start date', item.start_date, 'date')}</div>${f('ed-notes', 'Notes', item.notes)}`;
+  return `<div class="card ed-card"><div class="section-label" style="margin-top:0;">Edit details</div>${fields}${alsoBox}
+    <div style="display:flex; gap:8px; margin-top:12px;"><button class="btn small primary" data-action="rp-edit-save" data-kind="${kind}" data-id="${item.id}">Save changes</button><button class="btn small" data-action="rp-edit-cancel">Cancel</button></div></div>`;
+}
+async function saveItemEdit(kind, id){
+  const item = (kind === 'whitebook' ? WHITE_BOOKS : PROJECTS).find(x => x.id === id); if(!item) return;
+  const v = (k) => (document.getElementById(k) || { value: '' }).value.trim();
+  let patch, shared;
+  if(kind === 'whitebook'){
+    if(!v('ed-number')){ showToast('A number is required.'); return; }
+    patch = { number: v('ed-number'), pages: parseInt(v('ed-pages')) || null, date_received: v('ed-received') || null, notes: v('ed-notes') || null };
+    shared = patch;
+  } else {
+    const chapters = parseInt(v('ed-chapters'));
+    if(!v('ed-title') || !chapters || chapters < 1){ showToast('A title and at least one chapter are required.'); return; }
+    shared = { title: v('ed-title'), author: v('ed-author') || null, volume: v('ed-volume') || null, source: v('ed-source') || null, piece_date: v('ed-piece') || null, notes: v('ed-notes') || null, pages_per_chapter: parseInt(v('ed-ppc')) || null };
+    patch = Object.assign({}, shared, { total_chapters: chapters, start_date: v('ed-start') || null });
+    if(chapters !== item.total_chapters){
+      const chs = CHAPTERS.filter(c => c.project_id === id).sort((a, b) => a.chapter_number - b.chapter_number);
+      if(chapters > item.total_chapters){
+        const have = chs.reduce((m, c) => Math.max(m, c.chapter_number), 0);
+        const rows = []; for(let n = have + 1; n <= chapters; n++) rows.push({ project_id: id, chapter_number: n });
+        if(rows.length){ const r = await supabase.from('reading_project_chapters').insert(rows); if(r.error){ showToast('Could not add chapters: ' + r.error.message); return; } }
+      } else {
+        const drop = chs.filter(c => c.chapter_number > chapters);
+        const ticked = drop.find(c => c.done);
+        if(ticked){ showToast('Chapter ' + ticked.chapter_number + ' is ticked as read. Untick it first, or keep that many chapters.'); return; }
+        if(drop.length){ const r = await supabase.from('reading_project_chapters').delete().in('id', drop.map(c => c.id)); if(r.error){ showToast('Could not remove chapters: ' + r.error.message); return; } }
+      }
+    }
+  }
+  const copies = (document.getElementById('ed-others') || {}).checked ? rdCopiesOf(kind, item) : [];
+  const table = tableFor(kind);
+  const { error } = await supabase.from(table).update(patch).eq('id', id);
+  if(error){ showToast('Could not save: ' + error.message); return; }
+  for(const c of copies){ await supabase.from(table).update(shared).eq('id', c.id); }
+  state.rpEditing = null; await loadAll();
+  renderFocusedReading(document.getElementById('rp-body'));
+  showToast('Saved.' + (copies.length ? ' Updated ' + copies.length + ' other cop' + (copies.length === 1 ? 'y' : 'ies') + ' too.' : ''));
+}
+
 // ---- Drag reorder (pointer events, touch-friendly) ----
 function setupDragReorder(container, kind){
   if(!container) return;
-  let dragEl = null, startY = 0;
-  container.querySelectorAll('.drag-row').forEach(row=>{
-    const handle = row.querySelector('.drag-handle');
+  let dragEl = null, pid = null;
+  const rowsOf = () => [...container.querySelectorAll('.drag-row')];
+  async function finish(commit){
+    if(!dragEl) return;
+    const el = dragEl; dragEl = null; pid = null; el.classList.remove('dragging');
+    if(!commit) return;
+    await saveQueueOrder(kind, rowsOf().map(r => r.dataset.id));
+  }
+  container.querySelectorAll('.drag-handle').forEach(handle=>{
     handle.addEventListener('pointerdown', (e)=>{
-      dragEl = row; row.classList.add('dragging');
-      handle.setPointerCapture(e.pointerId);
+      e.preventDefault(); dragEl = handle.closest('.drag-row'); pid = e.pointerId; dragEl.classList.add('dragging');
+      try { handle.setPointerCapture(e.pointerId); } catch(_e){ /* capture not available */ }
     });
     handle.addEventListener('pointermove', (e)=>{
-      if(!dragEl) return;
-      const rows = [...container.querySelectorAll('.drag-row')];
+      if(!dragEl || e.pointerId !== pid) return;
+      e.preventDefault();
       const y = e.clientY;
-      for(const r of rows){
+      for(const r of rowsOf()){
         if(r === dragEl) continue;
         const rect = r.getBoundingClientRect();
         if(y > rect.top && y < rect.bottom){
-          if(y < rect.top + rect.height/2) container.insertBefore(dragEl, r);
-          else container.insertBefore(dragEl, r.nextSibling);
+          if(y < rect.top + rect.height/2) container.insertBefore(dragEl, r); else container.insertBefore(dragEl, r.nextSibling);
           break;
         }
       }
     });
-    handle.addEventListener('pointerup', async ()=>{
-      if(!dragEl) return;
-      dragEl.classList.remove('dragging'); dragEl = null;
-      const table = tableFor(kind);
-      const rows = [...container.querySelectorAll('.drag-row')];
-      for(let i=0;i<rows.length;i++){ await supabase.from(table).update({ queue_position: i+1 }).eq('id', rows[i].dataset.id); }
-      await loadAll();
-      if(state.rpEditOrder) renderReadingBody();
-    });
+    handle.addEventListener('pointerup', () => finish(true));
+    handle.addEventListener('pointercancel', () => finish(false));
   });
+}
+async function saveQueueOrder(kind, ids){
+  const table = tableFor(kind);
+  for(let i = 0; i < ids.length; i++){
+    const { error } = await supabase.from(table).update({ queue_position: i + 1 }).eq('id', ids[i]);
+    if(error){ showToast('Could not save the order: ' + error.message); break; }
+  }
+  await loadAll();
+  if(state.rpEditOrder) renderReadingBody();
+}
+async function moveQueue(kind, id, dir){
+  const { list } = tabItems();
+  const queued = list.filter(i => i.queue_position != null && !i.completed).sort((a, b) => a.queue_position - b.queue_position);
+  const idx = queued.findIndex(i => i.id === id), to = idx + dir;
+  if(idx < 0 || to < 0 || to >= queued.length) return;
+  const ids = queued.map(i => i.id); ids.splice(to, 0, ids.splice(idx, 1)[0]);
+  await saveQueueOrder(kind, ids);
 }
 
 // ---- Focused Current Reading view ----
-function openFocused(kind, id){ state.rpFocus = { tab: state.rpTab, kind, id }; renderReadingBody(); }
-function closeFocused(){ state.rpFocus = null; renderReadingBody(); }
+function openFocused(kind, id){ state.rpFocus = { tab: state.rpTab, kind, id }; state.rpEditing = null; renderReadingBody(); }
+function closeFocused(){ state.rpFocus = null; state.rpEditing = null; renderReadingBody(); }
 function totalPagesFor(kind, item){
   if(kind==='whitebook') return item.pages || null;
   const chapters = CHAPTERS.filter(c=>c.project_id===item.id);
@@ -2602,10 +2706,13 @@ function renderFocusedReading(body){
     <button class="btn small" data-action="close-focused">← Back to list</button>
     <div class="focused-reading" id="focused-reading-wrap">
       <div class="focused-center" id="focused-center">
-        <h2 class="pagetitle" style="font-size:20px;">${itemTitle(kind,item)}</h2>
+        <h2 class="pagetitle" style="font-size:20px;">${esc(itemTitle(kind,item))}</h2>
         <p class="subtitle">${kind==='whitebook' ? (item.pages||'?')+' pages'+(item.date_received ? ' · received '+item.date_received : '')+(item.notes ? ' · '+item.notes : '') : (item.author ? 'by '+item.author+' · ' : '')+(item.piece_date ? item.piece_date+' · ' : '')+(item.source ? item.source+' · ' : '')+item.total_chapters+' chapter'+(item.total_chapters===1?'':'s')+(item.start_date ? ' · started '+item.start_date : '')+(item.notes ? ' · '+item.notes : '')}</p>
+        ${state.rpEditing === item.id ? editFormHTML(kind, item) : ''}
         ${chaptersHTML}
+        <button class="btn small" style="margin-top:10px;" data-action="rp-edit" data-id="${item.id}">Edit details</button>
         <button class="btn small primary" style="margin-top:10px;" data-action="${kind==='whitebook'?'complete-white-book':'complete-project'}" data-id="${item.id}">Mark complete</button>
+        ${rdOthers().length ? `<button class="btn small" style="margin-top:10px;" data-action="issue-item" data-kind="${kind}" data-id="${item.id}">Issue to everyone</button>` : ''}
         <button class="btn small danger-outline" style="margin-top:10px;" data-action="delete" data-kind="${kind}" data-id="${item.id}">Delete</button>
 
         <div class="section-label">Reading progress</div>
@@ -2688,12 +2795,121 @@ function setupResizableDivider(){
   divider.addEventListener('pointerup', ()=>{ dragging = false; });
 }
 
+
+// ---------------- PER-PERSON READING: issuing, Everyone view ----------------
+function rdOthers(){ return PROFILES.filter(p => p.id !== currentUserId); }
+function issuedNames(){ return rdOthers().map(p => p.display_name).join(' and ') || 'everyone'; }
+function issueCheckHTML(id){
+  const o = rdOthers(); if(!o.length) return '';
+  return `<label class="issue-chk"><input type="checkbox" id="${id}"> Issue to everyone (${esc(o.map(p => p.display_name).join(', '))})</label>`;
+}
+function issueListBtnHTML(n){
+  if(!rdOthers().length || !n) return '';
+  return `<button class="btn small" data-action="issue-list">${state.rpIssueConfirm ? 'Tap again: issue ' + n + ' to ' + esc(issuedNames()) : 'Issue list to everyone'}</button> `;
+}
+const rdNorm = (v) => String(v || '').trim().toLowerCase();
+function rdSame(kind, a, b){
+  return kind === 'whitebook' ? rdNorm(a.number) === rdNorm(b.number)
+    : (a.section === b.section && rdNorm(a.title) === rdNorm(b.title) && rdNorm(a.volume) === rdNorm(b.volume) && rdNorm(a.piece_date) === rdNorm(b.piece_date));
+}
+// Gives every other member their own fresh copy (own progress, own chapters ticks, own place in their queue).
+async function placeAtTop(table, newId, queued){
+  for(const q of queued){ await supabase.from(table).update({ queue_position: q.queue_position + 1 }).eq('id', q.id); }
+  await supabase.from(table).update({ queue_position: 1 }).eq('id', newId);
+}
+async function issueItems(kind, items, top){
+  let made = 0;
+  for(const o of rdOthers()){
+    const have = kind === 'whitebook' ? RD_ALL.wb.filter(x => x.owner_id === o.id) : RD_ALL.pr.filter(x => x.owner_id === o.id);
+    for(const it of items){
+      if(have.some(h => rdSame(kind, h, it))) continue;
+      if(kind === 'whitebook'){
+        const { data: cp, error } = await supabase.from('reading_white_books').insert({ number: it.number, pages: it.pages, date_received: it.date_received, notes: it.notes, owner_id: o.id }).select();
+        if(error){ showToast('Could not issue: ' + error.message); return made; }
+        if(top && cp && cp[0]) await placeAtTop('reading_white_books', cp[0].id, RD_ALL.wb.filter(x => x.owner_id === o.id && !x.completed && x.queue_position != null));
+      } else {
+        const { data, error } = await supabase.from('reading_projects').insert({ section: it.section, title: it.title, author: it.author, volume: it.volume, source: it.source, piece_date: it.piece_date, notes: it.notes, total_chapters: it.total_chapters, pages_per_chapter: it.pages_per_chapter, owner_id: o.id }).select();
+        if(error || !data || !data[0]){ showToast('Could not issue: ' + (error ? error.message : 'no row returned')); return made; }
+        const chs = RD_ALL.ch.filter(c => c.project_id === it.id).sort((a, b) => a.chapter_number - b.chapter_number);
+        const rows = Array.from({ length: it.total_chapters }, (_, i) => ({ project_id: data[0].id, chapter_number: i + 1, pages: (chs[i] && chs[i].pages) || null }));
+        await supabase.from('reading_project_chapters').insert(rows);
+      }
+      made++;
+    }
+  }
+  return made;
+}
+async function issueOne(kind, id){
+  const it = (kind === 'whitebook' ? WHITE_BOOKS : PROJECTS).find(x => x.id === id); if(!it) return;
+  const n = await issueItems(kind, [it]); await loadAll();
+  renderReadingBody(); showToast(n ? 'Issued to ' + issuedNames() + '.' : issuedNames() + ' already ' + (rdOthers().length > 1 ? 'have' : 'has') + ' this.');
+}
+async function issueList(){
+  const { kind, list } = tabItems(); const items = list.filter(i => !i.completed);
+  if(!state.rpIssueConfirm){ state.rpIssueConfirm = true; renderReadingBody(); setTimeout(() => { if(state.rpIssueConfirm){ state.rpIssueConfirm = false; if(state.panel === 'reading') renderReadingBody(); } }, 6000); return; }
+  state.rpIssueConfirm = false; showToast('Issuing…');
+  const n = await issueItems(kind, items); await loadAll(); renderReadingBody();
+  showToast(n ? 'Issued ' + n + ' to ' + issuedNames() + '.' : 'Nothing new to issue; ' + issuedNames() + ' already ' + (rdOthers().length > 1 ? 'have' : 'has') + ' them all.');
+}
+function setRpView(v){
+  state.rpView = v; state.rpPeek = null;
+  document.querySelectorAll('#rp-view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+}
+function impScope(){ return state.impView === 'all' ? IMPRESSIONS : IMPRESSIONS.filter(e => rdMine(e.created_by)); }
+function rdTotalPages(kind, item){
+  if(kind === 'whitebook') return item.pages || null;
+  const chs = RD_ALL.ch.filter(c => c.project_id === item.id); if(!chs.length) return null;
+  return chs.reduce((n, c) => n + (c.pages || item.pages_per_chapter || 0), 0) || null;
+}
+function rdPagesRead(kind, item){ return RD_ALL.prog.filter(p => (kind === 'whitebook' ? p.linked_white_book_id : p.linked_project_id) === item.id).reduce((n, p) => n + p.pages_read, 0); }
+function rdPersonTile(kind, item, mine){
+  const read = rdPagesRead(kind, item), tot = rdTotalPages(kind, item);
+  const chs = kind === 'project' ? RD_ALL.ch.filter(c => c.project_id === item.id) : [];
+  const sub = (kind === 'project' ? (item.author ? esc(item.author) + ' · ' : '') + chs.filter(c => c.done).length + '/' + item.total_chapters + ' chapters · ' : '') + read + (tot ? '/' + tot : '') + ' pages';
+  return `<div class="rlist-tile" data-action="${mine ? 'rp-open-mine' : 'rp-peek'}" data-kind="${kind}" data-id="${item.id}"><div style="flex:1; min-width:0;"><div class="t">${esc(itemTitle(kind, item))}</div><div class="s">${sub}</div></div>${item.is_current ? '<span class="qchip queued">★ current</span>' : (item.queue_position != null ? `<span class="qchip queued">Q·${item.queue_position}</span>` : '')}</div>`;
+}
+function renderReadingEveryone(body){
+  if(state.rpPeek){ renderReadingPeek(body); return; }
+  const wb = state.rpTab === 'whitebooks', kind = wb ? 'whitebook' : 'project', section = wb ? 'whitebooks' : state.rpTab;
+  const people = PROFILES.slice().sort((a, b) => (a.id === currentUserId ? -1 : 0) - (b.id === currentUserId ? -1 : 0));
+  const dl = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  body.innerHTML = people.map(p => {
+    const mine = p.id === currentUserId;
+    const all = (wb ? RD_ALL.wb : RD_ALL.pr.filter(x => x.section === state.rpTab)).filter(x => x.owner_id === p.id);
+    const active = sortActive(kind, all.filter(i => !i.completed)), done = all.filter(i => i.completed);
+    const g = RD_ALL.goals.find(x => x.user_id === p.id && x.section === section);
+    const goalLine = g ? `Goal: ${g.pages_per_day} pages a day · ${(g.days_of_week || []).slice().sort().map(d => dl[d]).join(', ')}` : 'No reading goal set';
+    return `<div class="card rp-person"><div class="ph">${ownerDotHTML(p.id)} ${esc(p.display_name)}${mine ? ' <span class="habit-sub">(you)</span>' : ''}</div>
+      <div class="pg">${esc(goalLine)}</div>
+      ${active.length ? active.map(i => rdPersonTile(kind, i, mine)).join('') : '<div class="rlist-empty">Nothing on their list yet.</div>'}
+      ${done.length ? `<div class="habit-sub" style="margin-top:6px;">${done.length} finished</div>` : ''}</div>`;
+  }).join('');
+}
+function renderReadingPeek(body){
+  const { kind, id } = state.rpPeek;
+  const item = (kind === 'whitebook' ? RD_ALL.wb : RD_ALL.pr).find(x => x.id === id);
+  if(!item){ state.rpPeek = null; renderReadingEveryone(body); return; }
+  const owner = profileOf(item.owner_id);
+  const prog = RD_ALL.prog.filter(x => (kind === 'whitebook' ? x.linked_white_book_id : x.linked_project_id) === item.id).sort((a, b) => new Date(b.entry_date) - new Date(a.entry_date));
+  const read = prog.reduce((n, x) => n + x.pages_read, 0), tot = rdTotalPages(kind, item), pct = tot ? Math.min(100, Math.round(read / tot * 100)) : null;
+  const chs = kind === 'project' ? RD_ALL.ch.filter(c => c.project_id === item.id).sort((a, b) => a.chapter_number - b.chapter_number) : [];
+  const imps = IMPRESSIONS.filter(e => (kind === 'whitebook' ? e.linked_white_book_id : e.linked_project_id) === item.id);
+  body.innerHTML = `<button class="btn small" data-action="rp-peek-close">← Back to everyone</button>
+    <h2 class="pagetitle" style="font-size:20px; margin-top:10px;">${esc(itemTitle(kind, item))}</h2>
+    <p class="subtitle">${ownerBadgeHTML(item.owner_id)} · ${kind === 'whitebook' ? (item.pages || '?') + ' pages' : (item.author ? 'by ' + esc(item.author) + ' · ' : '') + item.total_chapters + ' chapter' + (item.total_chapters === 1 ? '' : 's')}${item.completed ? ' · finished ' + esc(item.completed_date || '') : ''}</p>
+    ${chs.length ? `<div class="chapter-grid">${chs.map(c => `<div class="chapter ro ${c.done ? 'done' : ''}">${c.chapter_number}</div>`).join('')}</div>` : ''}
+    <div class="section-label">${owner ? esc(owner.display_name) + '’s' : 'Their'} progress</div>
+    <div class="card">${tot ? `<div style="font-size:13px; font-weight:600; margin-bottom:8px;">${read} of ${tot} pages (${pct}%)</div><div class="barTrack"><div class="barFill" style="width:${pct}%; background:var(--accent);"></div></div>` : `<div style="font-size:13px; font-weight:600;">${read} pages read</div>`}
+      <div style="margin-top:10px;">${prog.length ? prog.map(x => `<div class="progress-row"><span>${x.opening_balance ? 'Read before the portal' : new Date(x.entry_date).toLocaleDateString()}</span><span>${x.pages_read} pages</span></div>`).join('') : '<div class="rlist-empty">Nothing logged yet.</div>'}</div></div>
+    ${imps.length ? `<div class="section-label">Impressions</div>` + imps.map(e => `<div class="imp-entry"><div class="imp-meta">${e.page_number ? `<span>p.${e.page_number}</span>` : ''}<span>· ${new Date(e.reading_date || e.created_at).toLocaleDateString()}</span></div><div>${esc(e.content)}</div></div>`).join('') : ''}`;
+}
+
 // ---------------- IMPRESSIONS ----------------
 function renderImpressionsPanel(){
   document.getElementById('imp-source-row').innerHTML = ['Reading','Bible','Meeting','Recordings','Other'].map(s=>
     `<button class="source-btn ${state.impSource===s?'selected':''}" data-action="set-imp-source" data-source="${s}">${s}</button>`
   ).join('');
-  const allLabels = [...new Set(IMPRESSIONS.flatMap(e=>e.labels||[]))].sort();
+  const allLabels = [...new Set(impScope().flatMap(e=>e.labels||[]))].sort();
   document.getElementById('imp-label-filter').innerHTML = allLabels.length ? allLabels.map(l=>
     `<button class="source-btn ${state.impLabelFilter===l?'selected':''}" data-action="filter-imp-label" data-label="${l}">${l}</button>`
   ).join('') + (state.impLabelFilter ? `<button class="btn small" data-action="filter-imp-label" data-label="">Clear</button>` : '')
@@ -2702,7 +2918,8 @@ function renderImpressionsPanel(){
 }
 async function renderImpressionsList(){
   const list = document.getElementById('imp-list');
-  const filtered = state.impLabelFilter ? IMPRESSIONS.filter(e=>(e.labels||[]).includes(state.impLabelFilter)) : IMPRESSIONS;
+  const base = impScope();
+  const filtered = state.impLabelFilter ? base.filter(e=>(e.labels||[]).includes(state.impLabelFilter)) : base;
   list.innerHTML = filtered.length ? (await Promise.all(filtered.map(e=>impressionEntryHTML(e)))).join('') : '<p class="empty">No impressions to show.</p>';
 }
 async function impressionEntryHTML(e){
@@ -2714,7 +2931,8 @@ async function impressionEntryHTML(e){
   const labelChips = (e.labels||[]).map(l=>`<span class="tag pillar">${l}</span>`).join(' ');
   const pageTag = e.page_number ? `<span>· p.${e.page_number}</span>` : '';
   const dateShown = e.reading_date || e.created_at;
-  return `<div class="imp-entry"><div class="imp-meta"><span class="tag habit" style="background:var(--accent-bg); color:var(--accent);">${e.source}</span>${e.link?`<span>${e.link}</span>`:''}${pageTag}<span>· ${new Date(dateShown).toLocaleDateString()}</span>${delBtn('impression', e.id)}</div><div>${e.content}</div>${labelChips?`<div style="margin-top:6px;">${labelChips}</div>`:''}${photoTag}</div>`;
+  const who = state.impView === 'all' ? ownerBadgeHTML(e.created_by) : '';
+  return `<div class="imp-entry"><div class="imp-meta">${who}<span class="tag habit" style="background:var(--accent-bg); color:var(--accent);">${e.source}</span>${e.link?`<span>${e.link}</span>`:''}${pageTag}<span>· ${new Date(dateShown).toLocaleDateString()}</span>${rdMine(e.created_by) ? delBtn('impression', e.id) : ''}</div><div>${e.content}</div>${labelChips?`<div style="margin-top:6px;">${labelChips}</div>`:''}${photoTag}</div>`;
 }
 function parseLabels(raw){
   return raw.split(',').map(s=>s.trim()).filter(Boolean);
@@ -3157,7 +3375,7 @@ document.addEventListener('click', (e)=>{
   else if(action === 'close-add-overlay') document.getElementById('add-overlay').classList.remove('open');
   else if(action === 'save-add') saveAdd();
   else if(action === 'nav-simple') showPanel(el.dataset.target);
-  else if(action === 'set-rp-tab'){ state.rpTab = el.dataset.key; state.rpEditOrder = false; state.rpFocus = null; renderReadingPanel(); }
+  else if(action === 'set-rp-tab'){ state.rpTab = el.dataset.key; state.rpEditOrder = false; state.rpFocus = null; state.rpPeek = null; state.rpIssueConfirm = false; renderReadingPanel(); }
   else if(action === 'add-white-book') addWhiteBook();
   else if(action === 'complete-white-book') completeWhiteBook(el.dataset.id);
   else if(action === 'unarchive-white-book') unarchiveWhiteBook(el.dataset.id);
@@ -3169,6 +3387,15 @@ document.addEventListener('click', (e)=>{
   else if(action === 'remove-queue') removeFromQueue(el.dataset.kind, el.dataset.id);
   else if(action === 'set-current') setCurrent(el.dataset.kind, el.dataset.id, el.dataset.section||null);
   else if(action === 'open-focused') openFocused(el.dataset.kind, el.dataset.id);
+  else if(action === 'issue-item') issueOne(el.dataset.kind, el.dataset.id);
+  else if(action === 'move-queue') moveQueue(el.dataset.kind, el.dataset.id, parseInt(el.dataset.dir));
+  else if(action === 'rp-edit'){ state.rpEditing = el.dataset.id; renderReadingBody(); }
+  else if(action === 'rp-edit-cancel'){ state.rpEditing = null; renderReadingBody(); }
+  else if(action === 'rp-edit-save') saveItemEdit(el.dataset.kind, el.dataset.id);
+  else if(action === 'issue-list') issueList();
+  else if(action === 'rp-open-mine'){ setRpView('mine'); openFocused(el.dataset.kind, el.dataset.id); }
+  else if(action === 'rp-peek'){ state.rpPeek = { kind: el.dataset.kind, id: el.dataset.id }; renderReadingBody(); }
+  else if(action === 'rp-peek-close'){ state.rpPeek = null; renderReadingBody(); }
   else if(action === 'close-focused') closeFocused();
   else if(action === 'submit-reading-impression') submitReadingImpression();
   else if(action === 'submit-progress') submitProgress();
@@ -3347,7 +3574,7 @@ document.querySelectorAll('.view-toggle').forEach(group=>{
     btn.addEventListener('click', ()=>{
       group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      const map = { 'goals-view-toggle':'goalsView', 'habits-view-toggle':'habitsView', 'actions-view-toggle':'actionsView', 'week-view-toggle':'weekView', 'vision-view-toggle':'visionView', 'fivep-view-toggle':'fivepView' };
+      const map = { 'goals-view-toggle':'goalsView', 'habits-view-toggle':'habitsView', 'actions-view-toggle':'actionsView', 'week-view-toggle':'weekView', 'vision-view-toggle':'visionView', 'fivep-view-toggle':'fivepView', 'rp-view-toggle':'rpView', 'imp-view-toggle':'impView' };
       const key = map[group.id];
       if(key){ state[key] = btn.dataset.view; renderActive(); }
     });
@@ -4352,7 +4579,7 @@ function reportModel(id, per){
     m.bars = started.map(r => ({ label: trunc(itemTitle(r.kind, r.item), 40), value: pctOf(r.read, r.total), text: r.read + (r.total ? '/' + r.total : '') + ' pages', color: '#2D6A5F' }));
     m.stats = [{ label: 'In progress', value: String(rows.filter(r => r.read > 0).length) }, { label: 'Finished in period', value: String(WHITE_BOOKS.filter(b => b.completed && inRange(b.completed_date, per)).length + PROJECTS.filter(p => p.completed && inRange(p.completed_date, per)).length) }];
   } else if(id === 'impressions'){
-    const list = IMPRESSIONS.filter(e => inRange(e.reading_date || e.created_at, per)); const bySrc = {}, lab = {};
+    const list = IMPRESSIONS.filter(e => rdMine(e.created_by) && inRange(e.reading_date || e.created_at, per)); const bySrc = {}, lab = {};
     list.forEach(e => { bySrc[e.source || 'Other'] = (bySrc[e.source || 'Other'] || 0) + 1; (e.labels || []).forEach(l => { lab[l] = (lab[l] || 0) + 1; }); });
     const mx = Math.max(1, ...Object.values(bySrc)); m.bars = Object.keys(bySrc).map(k => ({ label: k, value: pctOf(bySrc[k], mx), text: String(bySrc[k]), color: '#6B4E9B' }));
     m.stats = [{ label: 'Impressions', value: String(list.length) }];
